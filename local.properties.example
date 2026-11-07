@@ -1,0 +1,5 @@
+## Sao chép các dòng dưới vào local.properties (file này bị .gitignore, không lên GitHub).
+## Android Studio tự thêm dòng sdk.dir, đừng xoá.
+GOOGLE_CLIENT_ID=điền-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-điền-client-secret
+# MS_CLIENT_ID=tuỳ chọn, bỏ trống thì dùng ID mặc định trong build.gradle.kts

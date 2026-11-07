@@ -1,0 +1,22 @@
+# Gradle / Android Studio
+.gradle/
+.idea/
+build/
+app/build/
+*.iml
+captures/
+.cxx/
+
+# Khoá bí mật và đường dẫn máy cá nhân — KHÔNG commit
+local.properties
+secrets.properties
+*.jks
+*.keystore
+
+# Bản cài (đưa lên GitHub Releases thay vì commit vào repo)
+*.apk
+*.aab
+app/release/
+
+# macOS
+.DS_Store
