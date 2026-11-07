@@ -22,7 +22,9 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun LibraryScreen(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen) -> Unit, onAdd: () -> Unit, onOut: () -> Unit) {
-    val allTracks by Library.tracks.collectAsState()
+    val rawTracks by Library.tracks.collectAsState()
+    val hidden by SourceVisibility.hidden
+    val allTracks = remember(rawTracks, hidden) { if (hidden.isEmpty()) rawTracks else rawTracks.filter { it.src !in hidden } }
     val scanning by Library.scanning.collectAsState()
     val status by Library.status.collectAsState()
     val sources by SourceStore.list.collectAsState()
@@ -34,6 +36,8 @@ fun LibraryScreen(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen) -> Unit
     var sel by remember { mutableStateOf<Group?>(null) }
     var srcFilter by remember { mutableStateOf<String?>(null) }
     var live by remember { mutableStateOf(false) } // duyệt trực tiếp máy chủ DLNA
+    var showVis by remember { mutableStateOf(false) }
+    LaunchedEffect(hidden) { if (srcFilter != null && srcFilter in hidden) { srcFilter = null; sel = null; live = false } }
     val srcSource = srcFilter?.let { SourceStore.get(it) }
     val dlnaLive = live && srcSource?.type == "dlna"
     val all = remember(allTracks, srcFilter) { if (srcFilter == null) allTracks else allTracks.filter { it.src == srcFilter } }
@@ -50,8 +54,9 @@ fun LibraryScreen(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen) -> Unit
                 Wordmark(34, Modifier.padding(end = 18.dp))
                 LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     item { Chip("Tất cả", srcFilter == null) { srcFilter = null; sel = null; live = false } }
-                    item { Chip("Bộ nhớ TV & USB", srcFilter == "local") { srcFilter = "local"; sel = null; live = false } }
-                    items(sources, key = { it.id }) { s -> Chip(s.name, srcFilter == s.id) { srcFilter = s.id; sel = null; live = s.type == "dlna" } }
+                    if ("local" !in hidden) item { Chip("Bộ nhớ TV & USB", srcFilter == "local") { srcFilter = "local"; sel = null; live = false } }
+                    items(sources.filter { it.id !in hidden }, key = { it.id }) { s -> Chip(s.name, srcFilter == s.id) { srcFilter = s.id; sel = null; live = s.type == "dlna" } }
+                    item { Focusable({ showVis = true }) { T("⚙ Nguồn hiển thị", 16, C.Gold, Modifier.padding(12.dp, 7.dp)) } }
                     item { Focusable(onAdd) { T("+ Thêm nguồn", 16, C.Gold, Modifier.padding(12.dp, 7.dp)) } }
                 }
                 if (scanning) Focusable({ Library.cancelScan() }) { T("Dừng quét", 16, C.Gold, Modifier.padding(12.dp, 7.dp)) }
@@ -88,6 +93,7 @@ fun LibraryScreen(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen) -> Unit
                     }
                 }
             }
+            if (showVis) SourceVisibilityDialog(sources) { showVis = false }
             if (cur != null) Focusable({ onNav(Screen.NOW) }, Modifier.fillMaxWidth(), RoundedCornerShape(12.dp)) {
                 Row(Modifier.background(C.Panel).padding(14.dp, 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     CoverImage(cur, Modifier.size(56.dp), 4)

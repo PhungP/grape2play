@@ -10,7 +10,7 @@ enum class Grade(val color: Color) {
 
 /** Bài DSD64 đang được gửi tới thiết bị UPnP dưới dạng DoP (theo tuỳ chọn trong Cài đặt → Phát DSD). */
 fun dopActive(t: Track, i: AudioInfo?, remote: Renderer?): Boolean =
-    remote != null && remote.kind == "upnp" && AudioSettings.dopRemote && (t.ext == "dsf" || t.ext == "dff") && (i?.sampleRate ?: t.sr) == DopPcm.DSD64
+    remote != null && remote.kind == "upnp" && AudioSettings.dsdRemote == AudioSettings.DSD_DOP && (t.ext == "dsf" || t.ext == "dff") && (i?.sampleRate ?: t.sr) == DopPcm.DSD64
 
 /** Đánh giá chuỗi tín hiệu của app: (mức, nhãn ngắn). Chỉ đánh giá phần app kiểm soát; hệ điều hành/TV vẫn có thể đổi tần số lấy mẫu ở tầng dưới. */
 fun signalGrade(t: Track, i: AudioInfo?, pcmFmt: String, remote: Renderer?): Pair<Grade, String> {

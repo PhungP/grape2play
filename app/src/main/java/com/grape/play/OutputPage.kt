@@ -88,7 +88,8 @@ fun OutputPage(onNav: (Screen) -> Unit) {
         SectionLabel("KHÔNG DÂY — NETWORK PLAYER")
         rnItems.forEach { OutCard(it, null) }
         if (scanning) T("Đang tìm thiết bị…", 15, C.Muted)
-        else if (scanned && rnItems.isEmpty()) T("Không thấy thiết bị nào. Kiểm tra thiết bị và ${if (Device.tv) "TV" else "máy"} cùng mạng Wi-Fi/LAN, rồi quét lại.", 14, C.Muted, lines = 3)
+        else if (scanned && Renderers.report.isNotEmpty()) T(Renderers.report, 12, C.Muted, lines = 3)
+        if (!scanning && scanned && rnItems.isEmpty()) T("Không thấy thiết bị nào. Kiểm tra thiết bị và ${if (Device.tv) "TV" else "máy"} cùng mạng Wi-Fi/LAN, rồi quét lại.", 14, C.Muted, lines = 3)
     }
 
     @Composable
@@ -101,12 +102,12 @@ fun OutputPage(onNav: (Screen) -> Unit) {
             val upnp = r.kind != "cast"
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Tag(if (upnp) "UPnP" else "Google Cast")
-                if (upnp) Tag(if (AudioSettings.dopRemote) "DSD: DoP" else "DSD: file gốc", C.PlumSoft)
+                if (upnp) Tag(if (AudioSettings.dsdRemote == AudioSettings.DSD_DOP) "DSD: DoP" else "DSD: file gốc", C.PlumSoft)
             }
             Column(Modifier.fillMaxWidth()) {
                 SpecRow("Giao thức", if (upnp) "UPnP AV / OpenHome" else "Google Cast")
                 SpecRow("Địa chỉ", r.host)
-                SpecRow("DSD", if (!upnp) "Không hỗ trợ" else if (AudioSettings.dopRemote) "DSD64 qua DoP (24-bit/176,4 kHz)" else "Gửi file DSD gốc")
+                SpecRow("DSD", if (!upnp) "Không hỗ trợ" else if (AudioSettings.dsdRemote == AudioSettings.DSD_DOP) "DSD64 qua DoP (24-bit/176,4 kHz)" else "Gửi file DSD gốc")
                 SpecRow("Âm lượng", "Chỉnh trên thiết bị nhận")
             }
             NoteBox {

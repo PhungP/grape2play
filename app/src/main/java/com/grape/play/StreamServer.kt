@@ -57,6 +57,7 @@ object StreamServer {
     /** URL để thiết bị khác tải bài này. */
     /** URL do DoP tạo ra (WAV 24-bit/176,4 kHz) có id bắt đầu bằng "dop-". */
     fun isDopUrl(url: String) = url.contains("/t/dop-")
+    fun isDsdFile(t: Track) = t.ext == "dsf" || t.ext == "dff"
 
     /** File DSD này đóng gói DoP được không (DSD64, ≤ 2 kênh)? Đọc ~100 byte đầu file. */
     fun dopEligible(t: Track): Boolean {
@@ -67,9 +68,9 @@ object StreamServer {
         } catch (e: Exception) { false }
     }
 
-    /** dop = true: bài DSD64 được phát dưới dạng DoP (WAV 24-bit/176,4 kHz) thay vì file DSD gốc. Chỉ dùng cho thiết bị UPnP. */
-    fun urlFor(t: Track, dop: Boolean = false): String {
-        val asDop = dop && dopEligible(t)
+    /** mode = DSD_DOP: bài DSD64 phát dưới dạng DoP (WAV 24-bit/176,4 kHz); DSD_RAW: file gốc. Chỉ dùng cho thiết bị UPnP. */
+    fun urlFor(t: Track, mode: Int = AudioSettings.DSD_RAW): String {
+        val asDop = mode == AudioSettings.DSD_DOP && dopEligible(t)
         if (!asDop && (t.path.startsWith("http://") || t.path.startsWith("https://"))) return t.path
         ensure()
         val ip = CloudAuth.lanIp() ?: throw IOException("TV chưa kết nối mạng LAN/Wi-Fi")
@@ -115,7 +116,7 @@ object StreamServer {
                 if (path == null || (method != "GET" && method != "HEAD")) { reply(404, "Not Found"); return }
                 val ext = target.substringBefore('?').substringAfterLast('.', "")
                 val raw = try { Remote.reader(path) } catch (e: Exception) { reply(500, "Error"); return }
-                // DoP: tạo luồng WAV 24-bit/176,4 kHz từ file DSD gốc, đọc/tua tại vị trí bất kỳ như file thường
+                // DoP: tạo luồng WAV 24-bit từ file DSD gốc, đọc/tua tại vị trí bất kỳ như file thường
                 val rd: RemoteReader = if (!id.startsWith("dop-")) raw else try {
                     val ds = DopPcm(ReaderSource(raw))
                     object : RemoteReader {

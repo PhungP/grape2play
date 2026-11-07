@@ -17,10 +17,20 @@ object AudioSettings {
     var dsdRate: Int
         get() = if (::sp.isInitialized) sp.getInt("dsdRate", 176400) else 176400
         set(v) { sp.edit().putInt("dsdRate", v).apply() }
-    /** Phát DSD tới thiết bị UPnP dạng DoP (DSD64 gói trong PCM 24-bit/176,4 kHz) thay vì gửi file DSD gốc. */
+    /** Cách gửi DSD tới thiết bị UPnP: DSD_RAW = file DSF/DFF gốc; DSD_DOP = DSD64 gói trong PCM 24-bit/176,4 kHz. */
+    const val DSD_RAW = 0
+    const val DSD_DOP = 1
+    var dsdRemote: Int
+        get() = when {
+            !::sp.isInitialized -> DSD_RAW
+            sp.contains("dsdRemote") -> if (sp.getInt("dsdRemote", DSD_RAW) == DSD_DOP) DSD_DOP else DSD_RAW   // 2 (PCM, bản 0.8.2) đã bỏ → file gốc
+            sp.getBoolean("dopRemote", false) -> DSD_DOP      // tuỳ chọn cũ (bản ≤ 0.8.1)
+            else -> DSD_RAW
+        }
+        set(v) { sp.edit().putInt("dsdRemote", if (v == DSD_DOP) DSD_DOP else DSD_RAW).apply() }
     var dopRemote: Boolean
-        get() = if (::sp.isInitialized) sp.getBoolean("dopRemote", false) else false
-        set(v) { sp.edit().putBoolean("dopRemote", v).apply() }
+        get() = dsdRemote == DSD_DOP
+        set(v) { dsdRemote = if (v) DSD_DOP else DSD_RAW }
     /** Loại thiết bị đầu ra ưu tiên (AudioDeviceInfo.TYPE_*), 0 = mặc định hệ thống. */
     var deviceType: Int
         get() = sp.getInt("devType", 0)

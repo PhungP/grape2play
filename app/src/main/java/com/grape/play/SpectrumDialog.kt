@@ -125,10 +125,10 @@ fun SpectrumDialog(onClose: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                T("Phổ tần số (Spectrogram)", 30, serif = true)
-                if (!compact) T("Back để đóng", 14, C.Muted)
+                T("Phổ tần số (Spectrogram)", 24, serif = true)
+                if (!compact) T("Back để đóng", 15, C.Muted)
             }
-            if (t != null) T(if (t.path.startsWith("/")) t.path.substringAfterLast('/') else t.title, 15, C.Gold)
+            if (t != null) T(if (t.path.startsWith("/")) t.path.substringAfterLast('/') else t.title, 16, C.Gold)
 
             // TV: khung phổ chiếm đúng phần còn lại của hộp thoại (tiêu đề + nút luôn thấy, không phải cuộn nên không mất mép 22 kHz).
             Box(Modifier.fillMaxWidth().then(if (compact) Modifier.height((screenH * 0.5f).coerceIn(240f, 440f).dp) else Modifier.weight(1f).heightIn(min = 260.dp)).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {

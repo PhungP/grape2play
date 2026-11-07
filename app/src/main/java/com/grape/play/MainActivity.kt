@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -87,6 +88,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Device.tv = isTv
         SourceStore.init(applicationContext)
+        BurnIn.init(applicationContext)
+        SourceVisibility.init(applicationContext)
         Playback.init(applicationContext)
         perm = ContextCompat.checkSelfPermission(this, storagePerm) == PackageManager.PERMISSION_GRANTED
         permDone = perm
@@ -104,12 +107,12 @@ class MainActivity : ComponentActivity() {
             val scale = minOf(dm.widthPixels / cw, dm.heightPixels / (cw * 9f / 16f)).coerceAtLeast(0.4f)
             val density = if (tv) Density(scale, 1f) else LocalDensity.current
             val textScale = if (tv || cfg.screenWidthDp >= 600) 1f else 0.8f
-            CompositionLocalProvider(LocalDensity provides density, LocalCompact provides !tv, LocalTextScale provides textScale) {
+            CompositionLocalProvider(LocalDensity provides density, LocalCompact provides !tv, LocalTextScale provides textScale, LocalCanvasW provides (if (tv) cw else 1560f)) {
                 MaterialTheme(colorScheme = darkColorScheme()) {
                     var screen by remember { mutableStateOf(Screen.LIB) }
                     var askBg by remember { mutableStateOf(!BackgroundAccess.asked && !BackgroundAccess.ignoringBattery(applicationContext)) }
                     LaunchedEffect(openNow) { if (openNow) { screen = Screen.NOW; openNow = false } }
-                    Box(Modifier.fillMaxSize().background(C.Bg)) {
+                    Box(Modifier.fillMaxSize().background(C.Bg)) { BurnIn.Guard {
                         if (!tv) MobileApp(perm, { req.launch(storagePerm) }, screen, { screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT })
                         else when (screen) {
                             Screen.NOW -> if (Themes.style.value == 0) NowPlaying({ screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT })
@@ -122,11 +125,15 @@ class MainActivity : ComponentActivity() {
                         if (Overlay.spectrum.value) SpectrumDialog { Overlay.spectrum.value = false }
                         if (Overlay.exit.value) ExitDialog(onStay = { Overlay.exit.value = false }, onExit = { Overlay.exit.value = false; exitApp() })
                         if (permDone && askBg) BackgroundDialog(onAllow = { askBg = false; askBackground() }, onLater = { askBg = false; BackgroundAccess.asked = true })
-                    }
+                    } }
                 }
             }
         }
     }
+
+    // Ghi nhận lần thao tác cuối (cho chế độ tự giảm sáng chống lưu ảnh OLED)
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean { BurnIn.touch(); return super.dispatchKeyEvent(event) }
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean { BurnIn.touch(); return super.dispatchTouchEvent(ev) }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = when (keyCode) {
         KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> { Playback.toggle(); true }

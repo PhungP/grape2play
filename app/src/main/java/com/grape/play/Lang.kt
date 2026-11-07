@@ -8,7 +8,7 @@ import androidx.compose.runtime.mutableStateOf
  * Ngôn ngữ giao diện: Tiếng Việt (gốc) hoặc English. Mọi chữ hiển thị đều đi qua T() → Lang.tr().
  * Chuỗi cố định dịch theo bảng; chuỗi có số/tên chèn vào dịch theo mẫu (regex). Chuỗi không có trong bảng (ví dụ tên bài hát) giữ nguyên.
  */
-/** Kích thước giao diện: 0 = tự động, 1 = FHD (canvas 1560×878, chữ to hơn), 2 = 4K (canvas 1920×1080, gọn hơn). */
+/** Kích thước giao diện: 0 = tự động, 1 = FHD (canvas 1560×878), 2 = 4K (canvas 1760×990, lớn hơn bản 0.8.1 khoảng 9%). */
 object DisplayPrefs {
     val mode = mutableStateOf(0)
     private lateinit var sp: SharedPreferences
@@ -19,7 +19,7 @@ object DisplayPrefs {
     }
     fun set(m: Int) { mode.value = m; if (::sp.isInitialized) sp.edit().putInt("mode", m).apply() }
     /** Chiều rộng canvas thiết kế (dp) theo chế độ và độ phân giải thật. */
-    fun canvasWidth(heightPx: Int): Float = when (mode.value) { 1 -> 1560f; 2 -> 1920f; else -> if (heightPx <= 1200) 1560f else 1920f }
+    fun canvasWidth(heightPx: Int): Float = when (mode.value) { 1 -> 1560f; 2 -> 1640f; else -> if (heightPx <= 1200) 1560f else 1640f }
 }
 
 object Lang {
@@ -205,6 +205,13 @@ object Lang {
         "Không còn bit-perfect. Tăng nhiều ở dải trầm/cao có thể làm méo tiếng — nên chỉnh nhẹ và để Preamp âm." to "No longer bit-perfect. Large boosts in the bass/treble can distort — adjust gently and keep Preamp negative.",
         "Lưu ý: chỉnh EQ có thể làm méo tiếng, nhất là khi tăng cao." to "Note: adjusting the EQ can cause distortion, especially with large boosts.",
         "Đang chạy ngầm" to "Running in the background", "Dừng" to "Stop", "Đang phát nhạc" to "Playing music",
+        // thư viện / chống lưu ảnh
+        "NGUỒN HIỂN THỊ Ở THƯ VIỆN" to "SOURCES SHOWN IN THE LIBRARY", "⚙ Nguồn hiển thị" to "⚙ Visible sources", "Nguồn hiển thị" to "Visible sources",
+        "Bấm vào từng nguồn để hiện hoặc ẩn. Nguồn bị ẩn không xuất hiện trong Thư viện và không lẫn vào mục “Tất cả”." to "Tap a source to show or hide it. Hidden sources do not appear in the Library or in “All”.",
+        "● Hiện" to "● Shown", "○ Ẩn" to "○ Hidden", "Tất cả ổ & nguồn" to "All drives & sources",
+        "CHỐNG LƯU ẢNH MÀN HÌNH OLED" to "OLED BURN-IN PROTECTION",
+        "Dịch nhẹ toàn bộ giao diện vài điểm ảnh mỗi phút để các chi tiết cố định (thanh bên, logo, viền) không nằm yên một chỗ, và tự giảm sáng sau 5 phút không thao tác. Bấm phím hoặc chạm màn hình là sáng lại." to "Shifts the whole interface by a few pixels every minute so fixed details (sidebar, logo, borders) never sit still, and dims after 5 minutes without input. Press a key or touch the screen to wake it.",
+        "Đổi chế độ khi đang phát: bài hiện tại tự nạp lại ngay theo chế độ mới." to "Changing the mode while playing reloads the current track right away.",
         // cập nhật ứng dụng
         "CẬP NHẬT ỨNG DỤNG" to "APP UPDATE", "Chưa kiểm tra cập nhật." to "Not checked for updates yet.",
         "Đang kiểm tra cập nhật…" to "Checking for updates…", "Bạn đang dùng bản mới nhất." to "You are on the latest version.",

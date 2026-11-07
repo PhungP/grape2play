@@ -158,3 +158,26 @@ Phát hành một bản mới:
 3. Trên GitHub: Releases ▸ Draft a new release ▸ tag `v0.8.2` (phải trùng versionName, có thể có tiền tố `v`) ▸ đính kèm đúng một file `.apk` ▸ Publish. Phần mô tả release hiện 4 dòng đầu trong hộp cập nhật.
 
 Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi các bản sau tự cập nhật được.
+
+
+## Bản 0.8.2 — Dò loa UPnP kỹ hơn (JBL L75ms…) và phát DSD qua PCM 24-bit
+
+### Dò thiết bị UPnP
+- Gửi SSDP M-SEARCH ra **từng card mạng** (Wi-Fi/Ethernet) với 4 thẻ tìm kiếm (`MediaRenderer:1`, `AVTransport:1`, `upnp:rootdevice`, `ssdp:all`), lặp 3 lần.
+- Loa nào Google Cast đã thấy nhưng SSDP đa hướng chưa thấy thì app **hỏi thẳng IP đó** (unicast, cổng 1900).
+- Dưới danh sách ở trang "Đầu ra âm thanh" có dòng ghi chú lần quét (số phản hồi SSDP, số thiết bị UPnP, số Cast) để chẩn đoán khi không thấy loa.
+- Một loa có cả UPnP lẫn Google Cast sẽ hiện hai mục; chọn mục **UPnP** để phát DSD (Cast không hỗ trợ DSD).
+
+### Phát DSD tới thiết bị UPnP — 3 chế độ (Cài đặt ▸ PHÁT DSD)
+1. **Gửi file DSD gốc** (mặc định): thiết bị tự xử lý. Nếu thiết bị từ chối / không phát trong ~15 giây, app **tự chuyển sang PCM 24-bit** cho bài đó và các bài sau cho tới khi đổi thiết bị.
+2. **DoP** (chỉ DSD64): dành cho DAC ngoài hỗ trợ DoP.
+3. **PCM 24-bit**: app giải mã DSF/DFF thành WAV 24-bit (tốc độ theo mục "Chuyển DSD sang PCM", nên chọn 176.4 kHz) rồi gửi qua HTTP, tua được. Phù hợp JBL L75ms (hãng ghi "DSD (chuyển PCM)", PCM tới 192 kHz).
+
+
+## Bản 0.8.3
+
+- **Phát DSD tới thiết bị UPnP (JBL L75ms…)**: bỏ chế độ "PCM 24-bit" (còn "Gửi file DSD gốc" và "DoP"). Trước khi nạp bài mới app đưa thiết bị về trạng thái nghỉ (Stop, chờ STOPPED), chờ hết TRANSITIONING rồi mới Play và tự thử lại khi thiết bị báo bận (701/705). Đổi chế độ khi đang phát thì bài hiện tại nạp lại ngay, giữ nguyên vị trí; đang tạm dừng thì nạp lại ở lần bấm Phát kế tiếp. Bấm Phát sau khi thiết bị báo lỗi sẽ nạp lại cả bài (không chỉ gửi lệnh Play) nên không còn kẹt "không phát được" sau khi đổi chế độ.
+- **Cài đặt**: bỏ kiểu "Toàn ảnh"; thêm mục **Chống lưu ảnh màn hình OLED** (bật/tắt: dịch nhẹ giao diện mỗi phút + tự giảm sáng sau 5 phút không thao tác); trang Về ứng dụng chữ to hơn, thay email bằng link GitHub, nút "Đóng" ở giữa phía dưới.
+- **Đang phát (4K)**: canvas 4K nhỏ lại 1760 → 1640 dp (toàn giao diện to hơn ~7%); riêng màn Đang phát được phóng đúng tỷ lệ bản FHD (ảnh bìa lớn, khoảng trống giữa hộp tín hiệu và sóng âm gọn lại); hộp tín hiệu có viền/khối giống các hộp Định dạng, Độ sâu bit…
+- **Thư viện**: mục Thư mục hiển thị dạng ô thư mục có ảnh bìa (nếu có); nút **⚙ Nguồn hiển thị** để hiện/ẩn từng nguồn (nguồn ẩn không lẫn vào "Tất cả"). Có trên cả TV và điện thoại.
+- **Phổ tần**: tiêu đề nhỏ lại (30 → 24) cho đồng bộ với các trang cài đặt.

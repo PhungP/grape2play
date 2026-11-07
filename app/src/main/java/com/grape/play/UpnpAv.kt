@@ -1,5 +1,6 @@
 package com.grape.play
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -56,6 +57,46 @@ class UpnpController(private val r: Renderer) : RemoteController() {
             "$art<upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo=\"http-get:*:$mime:*\"$dur>${xml(url)}</res></item></DIDL-Lite>"
     }
 
+    // ---- Trình tự nạp bài ----
+    private fun state(): String = runCatching { tag(call("GetTransportInfo", ""), "CurrentTransportState") }.getOrDefault("")
+
+    /** Đưa thiết bị về trạng thái nghỉ trước khi nạp bài mới: nạp/Play khi thiết bị đang chuyển trạng thái sẽ bị báo lỗi 701 "Transition not available". */
+    private suspend fun settle(my: Int) {
+        val st = state()
+        if (st == "PLAYING" || st == "PAUSED_PLAYBACK" || st == "PAUSED_RECORDING" || st == "TRANSITIONING") runCatching { call("Stop", "") }
+        repeat(12) {
+            if (my != seq) return
+            val s = state()
+            if (s == "STOPPED" || s == "NO_MEDIA_PRESENT" || s.isEmpty()) return
+            delay(250)
+        }
+    }
+
+    /** Sau SetAVTransportURI thiết bị thường ở TRANSITIONING một lúc; chờ xong rồi mới Play. */
+    private suspend fun waitReady(my: Int) {
+        repeat(12) {
+            if (my != seq) return
+            if (state() != "TRANSITIONING") return
+            delay(250)
+        }
+    }
+
+    /** Thiết bị đang bận (701/705…) thì thử lại vài lần, mỗi lần chờ lâu hơn một chút. */
+    private suspend fun <T> retrying(my: Int, tries: Int = 6, block: () -> T): T {
+        var last: Exception? = null
+        for (n in 0 until tries) {
+            if (my != seq) throw CancellationException("đã có lệnh mới")
+            try { return block() } catch (e: Exception) {
+                last = e
+                val m = e.message.orEmpty()
+                // 714/715/716/718: thiết bị từ chối định dạng/nguồn này, thử lại cũng vô ích
+                if (listOf("(714)", "(715)", "(716)", "(718)").any { it in m }) throw e
+                delay(300L * (n + 1))
+            }
+        }
+        throw last ?: IOException("UPnP không phản hồi")
+    }
+
     // ---- RemoteController ----
     override fun load(t: Track, startMs: Long) {
         val my = ++seq
@@ -63,12 +104,24 @@ class UpnpController(private val r: Renderer) : RemoteController() {
         trackDur = t.durationMs
         scope.launch {
             try {
-                val url = StreamServer.urlFor(t, AudioSettings.dopRemote)
-                call("SetAVTransportURI", "<CurrentURI>${xml(url)}</CurrentURI><CurrentURIMetaData>${xml(didl(t, url))}</CurrentURIMetaData>")
-                call("Play", "<Speed>1</Speed>")
+                val mode = if (StreamServer.isDsdFile(t)) AudioSettings.dsdRemote else AudioSettings.DSD_RAW
+                val url = StreamServer.urlFor(t, mode)
+                settle(my)
+                if (my != seq) return@launch
+                retrying(my) { call("SetAVTransportURI", "<CurrentURI>${xml(url)}</CurrentURI><CurrentURIMetaData>${xml(didl(t, url))}</CurrentURIMetaData>") }
+                waitReady(my)
+                if (my != seq) return@launch
+                retrying(my) { call("Play", "<Speed>1</Speed>") }
                 if (my != seq) return@launch
                 pendingSeek = startMs; loadedAt = System.currentTimeMillis(); active = true
-            } catch (e: Exception) { onError("Không phát được tới ${r.name}: ${e.message ?: e.javaClass.simpleName}") }
+            } catch (e: CancellationException) {
+                // bị thay bằng lệnh nạp mới hơn (ví dụ đổi chế độ DSD): bỏ qua, lệnh mới sẽ lo
+            } catch (e: Exception) {
+                if (my == seq) {
+                    runCatching { call("Stop", "") }   // đưa thiết bị về trạng thái nghỉ để lần Phát kế tiếp không bị kẹt
+                    onError("Không phát được tới ${r.name}: ${e.message ?: e.javaClass.simpleName}")
+                }
+            }
         }
     }
     override fun play() { userStopped = false; scope.launch { runCatching { call("Play", "<Speed>1</Speed>") }.onFailure { onError("Lệnh Phát lỗi: ${it.message}") } } }

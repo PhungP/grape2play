@@ -57,6 +57,8 @@ object C {
 
 /** true khi chạy trên điện thoại / máy tính bảng (giao diện cảm ứng gọn), false trên TV. */
 val LocalCompact = compositionLocalOf { false }
+/** Chiều rộng canvas thiết kế (dp) của TV: 1560 (FHD) hoặc 1760 (4K). Điện thoại: 1560. */
+val LocalCanvasW = compositionLocalOf { 1560f }
 /** Hệ số co chữ: 1 trên TV và máy tính bảng lớn, nhỏ hơn trên điện thoại. */
 val LocalTextScale = compositionLocalOf { 1f }
 

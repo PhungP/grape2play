@@ -40,6 +40,7 @@ fun SoundScreen(onNav: (Screen) -> Unit, onSources: () -> Unit, onOut: () -> Uni
                 ThemeCard()
                 StyleCard()
                 DisplayCard()
+                BurnInCard()
                 DsdCard()
                 BackgroundCard()
                 UpdateCard()
@@ -81,13 +82,13 @@ fun ThemeCard() {
 @Composable
 fun StyleCard() {
     val cur by Themes.style
-    val names = listOf("Mặc định", "Cổ điển", "Toàn ảnh", "Nền màu")
+    val styles = listOf(0 to "Mặc định", 1 to "Cổ điển", 3 to "Nền màu")   // chỉ số 2 (Toàn ảnh) đã bỏ
     Card {
         T("BỐ CỤC MÀN ĐANG PHÁT", 13, C.Muted, spaced = true)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            names.forEachIndexed { i, nm -> Opt(nm, cur == i) { Themes.setStyle(i) } }
+            styles.forEach { (i, nm) -> Opt(nm, cur == i) { Themes.setStyle(i) } }
         }
-        T("Cổ điển, Toàn ảnh và Nền màu lấy cảm hứng từ Symfonium, dùng được trên điện thoại, máy tính bảng và TV. TV: OK = phát/dừng · Menu = yêu thích · Back = về Thư viện.", 14, C.Muted, lines = 3)
+        T("Cổ điển và Nền màu lấy cảm hứng từ Symfonium, dùng được trên điện thoại, máy tính bảng và TV. TV: OK = phát/dừng · Menu = yêu thích · Back = về Thư viện.", 14, C.Muted, lines = 3)
     }
 }
 
@@ -160,7 +161,7 @@ private fun TvHomeCard() {
 @Composable
 fun DsdCard() {
     var rate by remember { mutableStateOf(AudioSettings.dsdRate) }
-    var dop by remember { mutableStateOf(AudioSettings.dopRemote) }
+    var dsdMode by remember { mutableStateOf(AudioSettings.dsdRemote) }
     Card {
         T("PHÁT DSD", 13, C.Muted, spaced = true)
         T("Chuyển DSD sang PCM", 22)
@@ -174,10 +175,10 @@ fun DsdCard() {
         Spacer(Modifier.height(10.dp))
         T("KHI PHÁT TỚI THIẾT BỊ UPnP (WiiM, Network Player…)", 13, C.Muted, spaced = true)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Opt("Gửi file DSD gốc", !dop) { dop = false; AudioSettings.dopRemote = false }
-            Opt("DoP (DSD64 → PCM 24-bit/176,4 kHz)", dop) { dop = true; AudioSettings.dopRemote = true }
+            Opt("Gửi file DSD gốc", dsdMode == AudioSettings.DSD_RAW) { if (dsdMode != AudioSettings.DSD_RAW) { dsdMode = AudioSettings.DSD_RAW; AudioSettings.dsdRemote = AudioSettings.DSD_RAW; Playback.reloadRemoteDsd() } }
+            Opt("DoP (DSD64 → PCM 24-bit/176,4 kHz)", dsdMode == AudioSettings.DSD_DOP) { if (dsdMode != AudioSettings.DSD_DOP) { dsdMode = AudioSettings.DSD_DOP; AudioSettings.dsdRemote = AudioSettings.DSD_DOP; Playback.reloadRemoteDsd() } }
         }
-        T("DoP gói nguyên bit DSD64 vào PCM để thiết bị chuyển tiếp cho DAC ngoài tự giải mã DSD (WiiM Ultra không giải mã DSD gốc, chỉ chuyển sang PCM). Cần DAC hỗ trợ DoP, tắt EQ và để âm lượng thiết bị 100%. DAC không hỗ trợ DoP sẽ phát tiếng nhiễu rất to: hạ âm lượng trước khi thử. Chỉ áp dụng cho DSD64; DSD128 trở lên vẫn gửi file gốc. Áp dụng từ bài kế tiếp.", 14, C.Muted, lines = 6)
+        T("DoP gói nguyên bit DSD64 vào PCM để thiết bị chuyển tiếp cho DAC ngoài tự giải mã DSD (WiiM Ultra không giải mã DSD gốc, chỉ chuyển sang PCM). Cần DAC hỗ trợ DoP, tắt EQ và để âm lượng thiết bị 100%. DAC không hỗ trợ DoP sẽ phát tiếng nhiễu rất to: hạ âm lượng trước khi thử. Chỉ áp dụng cho DSD64; DSD128 trở lên vẫn gửi file gốc. Đổi chế độ khi đang phát: bài hiện tại tự nạp lại ngay theo chế độ mới.", 14, C.Muted, lines = 6)
     }
 }
 
@@ -192,6 +193,19 @@ private fun DisplayCard() {
             Opt("4K", mode == 2) { DisplayPrefs.set(2) }
         }
         T("Chữ và giao diện hơi nhỏ trên TV Full HD? Chọn FHD để phóng to.", 14, C.Muted, lines = 2)
+    }
+}
+
+@Composable
+private fun BurnInCard() {
+    val on by BurnIn.enabled
+    Card {
+        T("CHỐNG LƯU ẢNH MÀN HÌNH OLED", 13, C.Muted, spaced = true)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Opt("Bật", on) { BurnIn.set(true) }
+            Opt("Tắt", !on) { BurnIn.set(false) }
+        }
+        T("Dịch nhẹ toàn bộ giao diện vài điểm ảnh mỗi phút để các chi tiết cố định (thanh bên, logo, viền) không nằm yên một chỗ, và tự giảm sáng sau 5 phút không thao tác. Bấm phím hoặc chạm màn hình là sáng lại.", 15, C.Muted, lines = 4)
     }
 }
 
@@ -335,17 +349,27 @@ fun AboutDialog(onClose: () -> Unit) {
     val first = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     val compact = LocalCompact.current
+    @Composable fun CloseBar() {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
+            Focusable(onClose, Modifier.width(200.dp), requester = first) { T("Đóng", 20, C.Gold, Modifier.align(Alignment.Center).padding(20.dp, 10.dp), bold = true) }
+        }
+    }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         if (compact) Column(
             Modifier.dlgW(980).dlgH(900).clip(RoundedCornerShape(18.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)).verticalScroll(rememberScrollState()),
         ) {
             AboutBrand(ver, Modifier.fillMaxWidth().background(C.Bg).padding(horizontal = 20.dp, vertical = 20.dp), true)
-            AboutBody(onClose, first, Modifier.padding(horizontal = 20.dp, vertical = 18.dp))
-        } else Row(
-            Modifier.dlgW(980).height(IntrinsicSize.Min).clip(RoundedCornerShape(18.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)),
+            AboutBody(Modifier.padding(horizontal = 20.dp, vertical = 18.dp))
+            CloseBar()
+        } else Column(
+            Modifier.dlgW(1040).clip(RoundedCornerShape(18.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)),
         ) {
-            AboutBrand(ver, Modifier.width(290.dp).fillMaxHeight().background(C.Bg).padding(horizontal = 24.dp, vertical = 32.dp), false)
-            AboutBody(onClose, first, Modifier.weight(1f).padding(horizontal = 36.dp, vertical = 30.dp))
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                AboutBrand(ver, Modifier.width(300.dp).fillMaxHeight().background(C.Bg).padding(horizontal = 24.dp, vertical = 32.dp), false)
+                AboutBody(Modifier.weight(1f).padding(horizontal = 36.dp, vertical = 30.dp))
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(C.Line))
+            CloseBar()
         }
     }
 }
@@ -353,30 +377,30 @@ fun AboutDialog(onClose: () -> Unit) {
 /** Cột nhận diện thương hiệu: logo, tên, mô tả, phiên bản. horizontal = true: xếp ngang (điện thoại). */
 @Composable
 private fun AboutBrand(ver: String, modifier: Modifier, horizontal: Boolean) {
-    @Composable fun pill() { if (ver.isNotEmpty()) Box(Modifier.clip(RoundedCornerShape(50)).border(1.dp, C.Gold, RoundedCornerShape(50)).padding(horizontal = 14.dp, vertical = 5.dp)) { T("Phiên bản $ver", 14, C.Gold, bold = true) } }
+    @Composable fun pill() { if (ver.isNotEmpty()) Box(Modifier.clip(RoundedCornerShape(50)).border(1.dp, C.Gold, RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 6.dp)) { T("Phiên bản $ver", 17, C.Gold, bold = true) } }
     if (horizontal) Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         GrapeLogo(Modifier.size(64.dp))
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Wordmark(30)
-            T("Trình phát nhạc hi-end cho Android", 13, C.Muted, lines = 2)
+            T("Trình phát nhạc hi-end cho Android", 15, C.Muted, lines = 2)
             pill()
         }
     } else Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)) {
         GrapeLogo(Modifier.size(96.dp))
         Wordmark(34)
-        T(if (Device.tv) "Trình phát nhạc hi-end cho Android TV" else "Trình phát nhạc hi-end cho Android", 13, C.Muted, lines = 2)
+        T(if (Device.tv) "Trình phát nhạc hi-end cho Android TV" else "Trình phát nhạc hi-end cho Android", 16, C.Muted, lines = 2)
         if (ver.isNotEmpty()) { Spacer(Modifier.height(4.dp)); pill() }
     }
 }
 
 @Composable
-private fun AboutBody(onClose: () -> Unit, first: androidx.compose.ui.focus.FocusRequester, modifier: Modifier) {
+private fun AboutBody(modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        T("LIMITED EDITION", 12, C.PlumSoft, spaced = true, bold = true)
-        T("Viết tặng Ngọc Nho và các anh em yêu âm thanh", 22, C.Gold, serif = true, bold = true, lines = 3)
+        T("LIMITED EDITION", 13, C.PlumSoft, spaced = true, bold = true)
+        T("Viết tặng Ngọc Nho và các anh em yêu âm thanh", 24, C.Gold, serif = true, bold = true, lines = 3)
         Box(Modifier.fillMaxWidth().height(1.dp).background(C.Line))
-        T("App được viết dựa trên ý tưởng tặng cho một chuyên gia âm thanh già rất mê âm thanh nhưng không có tiền để đầu tư thiết bị.", 16, C.Text, lines = 5)
-        T("Dùng để cứu vãn vòng đời của chiếc TV Sony Bravia 2015 hiện đã bị sọc màn 🙏🙏🙏🤣", 16, C.Muted, lines = 3)
+        T("App được viết dựa trên ý tưởng tặng cho một chuyên gia âm thanh già rất mê âm thanh nhưng không có tiền để đầu tư thiết bị.", 18, C.Text, lines = 5)
+        T("Dùng để cứu vãn vòng đời của chiếc TV Sony Bravia 2015 hiện đã bị sọc màn 🙏🙏🙏🤣", 18, C.Muted, lines = 3)
         Spacer(Modifier.height(2.dp))
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.Bg).padding(horizontal = 20.dp, vertical = 14.dp),
@@ -384,10 +408,7 @@ private fun AboutBody(onClose: () -> Unit, first: androidx.compose.ui.focus.Focu
         ) {
             AboutRow("NHÀ PHÁT TRIỂN", "Phan Kim Phụng")
             Box(Modifier.fillMaxWidth().height(1.dp).background(C.Line))
-            AboutRow("EMAIL", "phankimphung@gmail.com")
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Focusable(onClose, Modifier.width(150.dp), requester = first) { T("Đóng", 17, C.Gold, Modifier.padding(20.dp, 9.dp), bold = true) }
+            AboutRow("GITHUB", "https://github.com/PhungP/grape2play")
         }
     }
 }
@@ -395,7 +416,7 @@ private fun AboutBody(onClose: () -> Unit, first: androidx.compose.ui.focus.Focu
 @Composable
 private fun AboutRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(if (LocalCompact.current) 120.dp else 170.dp)) { T(label, 12, C.Muted, spaced = true) }
-        T(value, 17, C.Text, bold = true)
+        Box(Modifier.width(if (LocalCompact.current) 130.dp else 190.dp)) { T(label, 14, C.Muted, spaced = true) }
+        T(value, 19, C.Text, bold = true, lines = 2)
     }
 }

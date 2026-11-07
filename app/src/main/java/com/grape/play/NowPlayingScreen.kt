@@ -20,12 +20,26 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import kotlinx.coroutines.launch
 
+/**
+ * Màn Đang phát (TV). Ở chế độ 4K (canvas rộng 1760 dp) cả màn được phóng đúng tỷ lệ so với canvas FHD 1560 dp:
+ * ảnh bìa, chữ, các hộp thông số đều to ra và khoảng trống giữa hộp tín hiệu với sóng âm nhỏ lại, bố cục cân đối như bản FHD.
+ */
 @Composable
 fun NowPlaying(onNav: (Screen) -> Unit, onAdd: () -> Unit, onOut: () -> Unit) {
+    val k = (LocalCanvasW.current / 1560f).coerceIn(1f, 1.4f)
+    val d = LocalDensity.current
+    if (k > 1.02f) CompositionLocalProvider(LocalDensity provides Density(d.density * k, d.fontScale)) { NowPlayingBody(onNav, onAdd, onOut) }
+    else NowPlayingBody(onNav, onAdd, onOut)
+}
+
+@Composable
+private fun NowPlayingBody(onNav: (Screen) -> Unit, onAdd: () -> Unit, onOut: () -> Unit) {
     val queue by Playback.queue.collectAsState()
     val idx by Playback.index.collectAsState()
     val playing by Playback.playing.collectAsState()
@@ -85,12 +99,13 @@ fun NowPlaying(onNav: (Screen) -> Unit, onAdd: () -> Unit, onOut: () -> Unit) {
                             Spec("Nguồn", t.sourceName.substringBefore(" · "), Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(12.dp))
-                        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(C.Panel).padding(14.dp, 9.dp)) {
+                        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, C.Line, RoundedCornerShape(8.dp)).padding(12.dp, 9.dp)) {
                             val src = if (isDsd) "${dsdLabel(i?.sampleRate ?: t.sr)} ${mhz(i?.sampleRate ?: t.sr)}"
                                 else if (i != null && i.sampleRate > 0) "${t.ext.uppercase()} ${i.bits.takeIf { it > 0 } ?: ""}/${khz(i.sampleRate)}" else t.ext.uppercase()
                             val dspOn = !DspParams.isFlat() && remote == null   // EQ chỉ áp dụng khi phát trên TV, không áp dụng khi gửi file tới thiết bị khác
                             val (grade, gl) = signalGrade(t, i, pcm, remote)
                             Column {
+                                T("ĐƯỜNG TÍN HIỆU", 11, C.Muted)
                                 T((if (grade == Grade.GREEN) "✓ " else "") + gl, 17, grade.color, bold = true)
                                 T(if (remote != null) (if (dopActive(t, i, remote)) "Tín hiệu: $src → DoP 24-bit/176,4 kHz → $outName (DAC phải hỗ trợ DoP)" else "Tín hiệu: $src → $outName (file gốc, thiết bị tự giải mã)") else "Tín hiệu: $src → ${pcm.ifEmpty { "PCM" }}${if (dspOn) " → EQ" else ""} → $outName", 16, grade.color, lines = 2)
                                 if (dspOn) T("⚠ EQ đang chỉnh — âm thanh có thể bị méo nếu tăng quá cao", 15, Grade.YELLOW.color, lines = 2)

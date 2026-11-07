@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -179,7 +180,9 @@ private fun MiniPlayer(t: Track, onNav: (Screen) -> Unit) {
 // ---------------------------------------------------------------- Thư viện
 @Composable
 private fun MobileLibrary(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen) -> Unit, onAdd: () -> Unit, onOut: () -> Unit) {
-    val allTracks by Library.tracks.collectAsState()
+    val rawTracks by Library.tracks.collectAsState()
+    val hidden by SourceVisibility.hidden
+    val allTracks = remember(rawTracks, hidden) { if (hidden.isEmpty()) rawTracks else rawTracks.filter { it.src !in hidden } }
     val scanning by Library.scanning.collectAsState()
     val status by Library.status.collectAsState()
     val sources by SourceStore.list.collectAsState()
@@ -190,6 +193,8 @@ private fun MobileLibrary(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen)
     var sel by remember { mutableStateOf<Group?>(null) }
     var srcFilter by remember { mutableStateOf<String?>(null) }
     var live by remember { mutableStateOf(false) }
+    var showVis by remember { mutableStateOf(false) }
+    LaunchedEffect(hidden) { if (srcFilter != null && srcFilter in hidden) { srcFilter = null; sel = null; live = false } }
     val srcSource = srcFilter?.let { SourceStore.get(it) }
     val dlnaLive = live && srcSource?.type == "dlna"
     val all = remember(allTracks, srcFilter) { if (srcFilter == null) allTracks else allTracks.filter { it.src == srcFilter } }
@@ -205,12 +210,14 @@ private fun MobileLibrary(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen)
             if (scanning) IconBtn(Icons.Filled.Close, "Dừng quét") { Library.cancelScan() }
             else IconBtn(Icons.Filled.Refresh, "Quét lại") { Library.rescanAllAsync(ctx) }
             IconBtn(Icons.Filled.Speaker, "Đầu ra âm thanh") { onOut() }
+            IconBtn(Icons.Filled.Visibility, "Nguồn hiển thị") { showVis = true }
             IconBtn(Icons.Filled.Add, "Thêm nguồn nhạc") { onAdd() }
         }
+        if (showVis) SourceVisibilityDialog(sources) { showVis = false }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             item { MChip("Tất cả", srcFilter == null) { srcFilter = null; sel = null; live = false } }
-            item { MChip(if (Device.tv) "Bộ nhớ TV & USB" else "Bộ nhớ máy & USB", srcFilter == "local") { srcFilter = "local"; sel = null; live = false } }
-            items(sources, key = { it.id }) { s -> MChip(s.name, srcFilter == s.id) { srcFilter = s.id; sel = null; live = s.type == "dlna" } }
+            if ("local" !in hidden) item { MChip(if (Device.tv) "Bộ nhớ TV & USB" else "Bộ nhớ máy & USB", srcFilter == "local") { srcFilter = "local"; sel = null; live = false } }
+            items(sources.filter { it.id !in hidden }, key = { it.id }) { s -> MChip(s.name, srcFilter == s.id) { srcFilter = s.id; sel = null; live = s.type == "dlna" } }
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
             items(Tab.values().toList()) { tb ->

@@ -45,7 +45,7 @@ object Themes {
         sp = ctx.getSharedPreferences("theme", Context.MODE_PRIVATE)
         val id = sp.getString("id", "grape")
         cur.value = ALL.firstOrNull { it.id == id } ?: ALL[0]
-        style.value = sp.getInt("nowStyle", 0).coerceIn(0, 3)
+        style.value = sp.getInt("nowStyle", 0).coerceIn(0, 3).let { if (it == 2) 0 else it }   // kiểu "Toàn ảnh" đã bỏ
     }
     fun setStyle(i: Int) { style.value = i; if (::sp.isInitialized) sp.edit().putInt("nowStyle", i).apply() }
     fun set(id: String) {

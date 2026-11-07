@@ -223,7 +223,12 @@ object Playback {
     fun jump(i: Int) { if (rc != null) loadRemote(i) else { exo.seekTo(i, 0L); exo.play() } }
     fun toggle() {
         val c = rc
-        if (c != null) { if (playing.value) { playing.value = false; c.pause() } else { playing.value = true; c.play() } }
+        if (c != null) {
+            if (playing.value) { playing.value = false; c.pause() }
+            // Thiết bị vừa báo lỗi, hoặc chế độ DSD vừa đổi khi đang tạm dừng: nạp lại bài từ vị trí hiện tại (chỉ gửi lệnh Play thì thiết bị báo 701 "Transition not available")
+            else if (error.value != null || remoteStale) loadRemote(index.value, position.value)
+            else { playing.value = true; c.play() }
+        }
         else if (exo.isPlaying) exo.pause() else exo.play()
     }
     fun next() {
@@ -256,8 +261,10 @@ object Playback {
 
     // ---------- Stream không dây ----------
     /** Nạp bài thứ i lên thiết bị từ xa. ExoPlayer chỉ giữ danh sách/thứ tự (shuffle, repeat), không phát. */
+    @Volatile private var remoteStale = false
     private fun loadRemote(i: Int, startMs: Long = 0L) {
         val c = rc ?: return
+        remoteStale = false
         val t = queue.value.getOrNull(i) ?: return
         if (exo.currentMediaItemIndex != i) exo.seekTo(i, 0L)
         index.value = i; position.value = startMs; duration.value = t.durationMs; error.value = null
@@ -266,6 +273,15 @@ object Playback {
         probeJob = CoroutineScope(Dispatchers.IO).launch { info.value = Probe.probe(t) }
         playing.value = true
         c.load(t, startMs)
+    }
+
+    /** Đổi cách gửi DSD khi đang phát tới thiết bị từ xa: nạp lại bài đang nghe ngay theo chế độ mới, giữ nguyên vị trí. */
+    fun reloadRemoteDsd() {
+        if (rc == null) return
+        val i = index.value
+        val t = queue.value.getOrNull(i) ?: return
+        if (!StreamServer.isDsdFile(t)) return
+        if (playing.value) loadRemote(i, position.value) else remoteStale = true
     }
 
     private fun remoteEnded() {
