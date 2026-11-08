@@ -120,34 +120,34 @@ fun SpectrumDialog(onClose: () -> Unit) {
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            Modifier.dlgW(1360).dlgH(if (compact) 820 else 800).clip(RoundedCornerShape(16.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(16.dp))
-                .then(if (compact) Modifier.verticalScroll(rememberScrollState()) else Modifier).dlgPad(36, 24),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.dlgW(if (compact) 1360 else 800).dlgH(if (compact) 820 else 460).clip(RoundedCornerShape(16.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(16.dp))
+                .then(if (compact) Modifier.verticalScroll(rememberScrollState()) else Modifier).dlgPad(if (compact) 36 else 20, if (compact) 24 else 12),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 4.dp),
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                T("Phổ tần số (Spectrogram)", 24, serif = true)
-                if (!compact) T("Back để đóng", 15, C.Muted)
+                T("Phổ tần số (Spectrogram)", if (compact) 24 else 16, serif = true)
+                if (!compact) T("Back để đóng", 11, C.Muted)
             }
-            if (t != null) T(if (t.path.startsWith("/")) t.path.substringAfterLast('/') else t.title, 16, C.Gold)
+            if (t != null) T(if (t.path.startsWith("/")) t.path.substringAfterLast('/') else t.title, if (compact) 16 else 12, C.Gold)
 
             // TV: khung phổ chiếm đúng phần còn lại của hộp thoại (tiêu đề + nút luôn thấy, không phải cuộn nên không mất mép 22 kHz).
-            Box(Modifier.fillMaxWidth().then(if (compact) Modifier.height((screenH * 0.5f).coerceIn(240f, 440f).dp) else Modifier.weight(1f).heightIn(min = 260.dp)).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {
+            Box(Modifier.fillMaxWidth().then(if (compact) Modifier.height((screenH * 0.5f).coerceIn(240f, 440f).dp) else Modifier.weight(1f).heightIn(min = 150.dp)).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {
                 val ims = images
                 if (d != null && ims != null) {
                     Canvas(Modifier.fillMaxSize()) {
                         ver.let { }   // đọc state để vẽ lại khi có cột mới
-                        val padL = (if (compact) 54.dp else 74.dp).toPx()
-                        val padR = (if (compact) 78.dp else 112.dp).toPx()
-                        val padT = (if (compact) 28.dp else 40.dp).toPx()
-                        val padB = (if (compact) 28.dp else 40.dp).toPx()
+                        val padL = (if (compact) 54.dp else 50.dp).toPx()
+                        val padR = (if (compact) 78.dp else 70.dp).toPx()
+                        val padT = (if (compact) 28.dp else 24.dp).toPx()
+                        val padB = (if (compact) 28.dp else 24.dp).toPx()
                         val w = size.width - padL - padR
                         val h = size.height - padT - padB
-                        val lbl = TextStyle(color = Color.White, fontSize = if (compact) 11.sp else 15.sp)
+                        val lbl = TextStyle(color = Color.White, fontSize = if (compact) 11.sp else 9.sp)
                         val white = Color.White
-                        val tick = 5.dp.toPx()
+                        val tick = (if (compact) 5.dp else 3.dp).toPx()
 
                         // Tiêu đề trong khung, căn giữa, cắt "…" khi quá rộng (như Spek)
-                        val tl = tm.measure(d.title, lbl.copy(fontSize = if (compact) 12.sp else 17.sp), overflow = TextOverflow.Ellipsis, maxLines = 1, constraints = Constraints(maxWidth = w.toInt()))
+                        val tl = tm.measure(d.title, lbl.copy(fontSize = if (compact) 12.sp else 10.sp), overflow = TextOverflow.Ellipsis, maxLines = 1, constraints = Constraints(maxWidth = w.toInt()))
                         drawText(tl, topLeft = Offset(padL + (w - tl.size.width) / 2f, (padT - tl.size.height) / 2f))
 
                         // Phổ: một bảng gộp 2 kênh
@@ -208,28 +208,28 @@ fun SpectrumDialog(onClose: () -> Unit) {
                     d == null -> "Đang mở file…" to ""
                     else -> null
                 }
-                if (msg != null) Column(Modifier.fillMaxSize().padding(horizontal = if (compact) 18.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
-                    T(msg.first, 24, if (err != null) Color(0xFFE5575A) else C.Gold, serif = true, bold = true, lines = 2)
-                    if (msg.second.isNotEmpty()) T(msg.second, 17, Color(0xFFD0D0D0), lines = 12)
+                if (msg != null) Column(Modifier.fillMaxSize().padding(horizontal = if (compact) 18.dp else 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
+                    T(msg.first, if (compact) 24 else 15, if (err != null) Color(0xFFE5575A) else C.Gold, serif = true, bold = true, lines = 2)
+                    if (msg.second.isNotEmpty()) T(msg.second, if (compact) 17 else 11, Color(0xFFD0D0D0), lines = 12)
                 }
             }
 
             if (d != null && progress < 1f) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.width(320.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(C.Line)) {
+                    Box(Modifier.width(if (compact) 320.dp else 200.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(C.Line)) {
                         Box(Modifier.fillMaxHeight().fillMaxWidth(progress.coerceIn(0.02f, 1f)).background(C.Gold))
                     }
-                    T("Đang giải mã và phân tích… ${(progress * 100).toInt()}%", 14, C.Muted)
+                    T("Đang giải mã và phân tích… ${(progress * 100).toInt()}%", if (compact) 14 else 10, C.Muted)
                 }
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                T("Thang màu", 12, C.Muted, spaced = true)
+                T("Thang màu", if (compact) 12 else 9, C.Muted, spaced = true)
                 for ((tv, label) in listOf(-20 to "-20 → -120 dB (Spek)", 0 to "0 → -120 dB")) Focusable({ top = tv }, selected = top == tv, requester = if (tv == -20) first else null) {
-                    T((if (top == tv) "● " else "○ ") + label, 16, if (top == tv) C.Gold else C.Text, Modifier.padding(16.dp, 8.dp))
+                    T((if (top == tv) "● " else "○ ") + label, if (compact) 16 else 11, if (top == tv) C.Gold else C.Text, Modifier.padding(if (compact) 16.dp else 10.dp, if (compact) 8.dp else 4.dp))
                 }
                 Spacer(Modifier.weight(1f))
-                Focusable(onClose) { T("Đóng", 16, C.Gold, Modifier.padding(26.dp, 8.dp), bold = true) }
+                Focusable(onClose) { T("Đóng", if (compact) 16 else 12, C.Gold, Modifier.padding(if (compact) 26.dp else 16.dp, if (compact) 8.dp else 4.dp), bold = true) }
             }
         }
     }
@@ -242,14 +242,14 @@ fun ExitDialog(onStay: () -> Unit, onExit: () -> Unit) {
     LaunchedEffect(Unit) { runCatching { stay.requestFocus() } }
     Dialog(onDismissRequest = onStay, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            Modifier.dlgW(780).clip(RoundedCornerShape(16.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(16.dp)).dlgPad(48, 36),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            Modifier.dlgW(400).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(14.dp)).dlgPad(24, 16),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            T("Thoát GRAPEPlay?", 38, serif = true)
-            T("Nhạc đang phát sẽ dừng và app sẽ đóng.", 20, C.Muted, lines = 2)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End)) {
-                Focusable(onExit, ring = Color(0xFFE5575A)) { T("Thoát", 20, Color(0xFFE5575A), Modifier.padding(26.dp, 12.dp), bold = true) }
-                Focusable(onStay, requester = stay) { T("Ở lại", 20, C.Gold, Modifier.padding(26.dp, 12.dp), bold = true) }
+            T("Thoát GRAPEPlay?", 20, serif = true)
+            T("Nhạc đang phát sẽ dừng và app sẽ đóng.", 13, C.Muted, lines = 2)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
+                Focusable(onExit, ring = Color(0xFFE5575A)) { T("Thoát", 14, Color(0xFFE5575A), Modifier.padding(18.dp, 7.dp), bold = true) }
+                Focusable(onStay, requester = stay) { T("Ở lại", 14, C.Gold, Modifier.padding(18.dp, 7.dp), bold = true) }
             }
         }
     }

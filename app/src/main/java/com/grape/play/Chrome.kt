@@ -42,42 +42,31 @@ fun Rail(cur: Screen, onNav: (Screen) -> Unit, onSources: () -> Unit = {}, onOut
     val count by Library.tracks.collectAsState()
     val remote by Playback.remote.collectAsState()
     Column(
-        Modifier.width(132.dp).fillMaxHeight().background(C.Side).padding(horizontal = 8.dp, vertical = 18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp),
+        Modifier.width(132.dp).fillMaxHeight().background(C.Side).padding(horizontal = 8.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        GrapeLogo(Modifier.size(64.dp))
-        Spacer(Modifier.height(16.dp))
+        GrapeLogo(Modifier.size(56.dp))
+        Spacer(Modifier.height(10.dp))
         RailItem(Icons.Outlined.MusicNote, "Đang phát", cur == Screen.NOW) { onNav(Screen.NOW) }
         RailItem(Icons.Outlined.GridView, "Thư viện", cur == Screen.LIB) { onNav(Screen.LIB) }
         RailItem(Icons.Outlined.CloudQueue, "Nguồn nhạc", cur == Screen.SOURCES) { onNav(Screen.SOURCES) }
         RailItem(Icons.Outlined.Cast, "Đầu ra", cur == Screen.OUTPUT, highlight = remote != null) { onNav(Screen.OUTPUT) }
         RailItem(Icons.Outlined.Equalizer, "Phổ tần", false) { Overlay.spectrum.value = true }
         RailItem(Icons.Outlined.Tune, "Cài đặt", cur == Screen.SOUND) { onNav(Screen.SOUND) }
+        if (!scanning) RailItem(Icons.Outlined.Refresh, "Quét lại", false) { Library.rescanAllAsync(ctx.applicationContext) }
         Spacer(Modifier.weight(1f))
         LimitedBadge()
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
         if (scanning) T("Đang quét… ${count.size} bài", 12, C.Gold)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Focusable({ Overlay.exit.value = true }, Modifier.weight(1f)) {
-                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Outlined.PowerSettingsNew, null, tint = Color(0xFFE5575A), modifier = Modifier.size(24.dp)); T("Thoát", 12, C.Muted)
-                }
-            }
-            if (scanning) Spacer(Modifier.weight(1f))
-            else Focusable({ Library.rescanAllAsync(ctx.applicationContext) }, Modifier.weight(1f)) {
-                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Outlined.Refresh, null, tint = C.Muted, modifier = Modifier.size(24.dp)); T("Quét lại", 12, C.Muted)
-                }
-            }
-        }
+        RailItem(Icons.Outlined.PowerSettingsNew, "Thoát", false, tintOverride = Color(0xFFE5575A)) { Overlay.exit.value = true }
     }
 }
 
 @Composable
-private fun RailItem(icon: ImageVector, label: String, selected: Boolean, highlight: Boolean = false, onClick: () -> Unit) =
+private fun RailItem(icon: ImageVector, label: String, selected: Boolean, highlight: Boolean = false, tintOverride: Color? = null, onClick: () -> Unit) =
     Focusable(onClick, Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), selected = selected) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Icon(icon, null, tint = if (selected || highlight) C.Gold else C.Muted, modifier = Modifier.size(30.dp))
+        Column(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Icon(icon, null, tint = tintOverride ?: if (selected || highlight) C.Gold else C.Muted, modifier = Modifier.size(30.dp))
             T(label, 13, if (selected) C.Gold else C.Muted, bold = selected)
         }
     }

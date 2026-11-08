@@ -40,7 +40,7 @@ object BurnIn {
 
     const val SHIFT_EVERY_MS = 60_000L
     const val DIM_AFTER_MS = 5 * 60_000L
-    const val SHIFT_DP = 6f                 // biên độ dịch (dp). Giao diện được phóng 1,4% để mép không lộ nền khi dịch.
+    const val SHIFT_DP = 6f                 // biên độ dịch (dp). Giao diện được THU NHỎ nhẹ (không phóng to) để khi dịch vẫn nằm trọn trong màn hình.
     const val DIM_ALPHA = 0.55f
     private val PATH = listOf(0f to 0f, 1f to 0f, 1f to 1f, 0f to 1f, -1f to 1f, -1f to 0f, -1f to -1f, 0f to -1f, 1f to -1f)
 
@@ -59,10 +59,14 @@ object BurnIn {
         val (dx, dy) = PATH[step]
         val tx by animateFloatAsState(if (on) dx * px else 0f, tween(4000), label = "burnX")
         val ty by animateFloatAsState(if (on) dy * px else 0f, tween(4000), label = "burnY")
-        val sc by animateFloatAsState(if (on) 1.014f else 1f, tween(600), label = "burnS")
+        val sc by animateFloatAsState(if (on) 1f else 0f, tween(600), label = "burnS")
         val dim by animateFloatAsState(if (on && idle) DIM_ALPHA else 0f, tween(2500), label = "burnDim")
         Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().graphicsLayer { scaleX = sc; scaleY = sc; translationX = tx; translationY = ty }) { content() }
+            Box(Modifier.fillMaxSize().graphicsLayer {
+                // Thu nhỏ vừa đủ để phần dịch (tối đa px) không đẩy nội dung ra sát/ra ngoài mép.
+                val s = 1f - sc * (2f * px / size.minDimension.coerceAtLeast(1f))
+                scaleX = s; scaleY = s; translationX = tx; translationY = ty
+            }) { content() }
             if (dim > 0.001f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dim)))
         }
     }

@@ -181,3 +181,15 @@ Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi c�
 - **Đang phát (4K)**: canvas 4K nhỏ lại 1760 → 1640 dp (toàn giao diện to hơn ~7%); riêng màn Đang phát được phóng đúng tỷ lệ bản FHD (ảnh bìa lớn, khoảng trống giữa hộp tín hiệu và sóng âm gọn lại); hộp tín hiệu có viền/khối giống các hộp Định dạng, Độ sâu bit…
 - **Thư viện**: mục Thư mục hiển thị dạng ô thư mục có ảnh bìa (nếu có); nút **⚙ Nguồn hiển thị** để hiện/ẩn từng nguồn (nguồn ẩn không lẫn vào "Tất cả"). Có trên cả TV và điện thoại.
 - **Phổ tần**: tiêu đề nhỏ lại (30 → 24) cho đồng bộ với các trang cài đặt.
+
+
+## Bản 0.8.4
+
+- Cập nhật ứng dụng: chịu được tag có ký tự lạ ở đầu (`v.0.8.3`, `V0.8.3`…); mọi ký tự không phải số ở đầu tag đều được bỏ trước khi so sánh phiên bản. Thẻ cập nhật hiện thêm dòng "Bản mới nhất trên GitHub" và báo rõ khi GitHub chưa có Release hợp lệ.
+- Khuyến nghị đặt tag đúng dạng `v0.8.4` (không có dấu chấm sau chữ v).
+
+## Bản 0.8.5
+- Quét đầu ra: không phụ thuộc DSD gốc/DoP. Google Cast tìm bằng NsdManager + mDNS tự viết (hợp hai kết quả), UPnP bằng SSDP trên mọi card mạng + hỏi thẳng IP; tự quét lượt 2 nếu thiếu thiết bị đã biết; nhớ thiết bị từng thấy và kiểm tra bằng kết nối TCP nên loa bận/rơi gói UDP không biến mất.
+- Chống lưu ảnh: thu nhỏ nhẹ thay vì phóng to, nên khi dịch hình menu không bị đẩy sát viền.
+- Cửa sổ Ứng dụng, Phổ tần số, Thoát thu nhỏ (~1/4 màn hình), chữ giảm đồng bộ.
+- "Quét lại" nằm dưới "Cài đặt", "Thoát" ở cuối thanh trái; cả hai cùng cỡ với các nút khác.

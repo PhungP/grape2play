@@ -44,18 +44,76 @@ object Renderers {
     @Volatile var report = ""
         private set
 
+    /**
+     * Quét độc lập với cách gửi DSD (file gốc hay DoP): không đọc bất kỳ cài đặt âm thanh nào.
+     * Google Cast: hợp NsdManager + mDNS tự viết. UPnP: SSDP đa hướng trên mọi card mạng + hỏi thẳng IP.
+     * Quét 2 lượt nếu lượt đầu thiếu thiết bị đã biết; thiết bị từng thấy được nhớ lại và kiểm tra bằng kết nối TCP,
+     * nên loa đang bận / UDP rơi gói vẫn không biến mất khỏi danh sách.
+     */
     suspend fun discover(ctx: Context): List<Renderer> = coroutineScope {
         val app = ctx.applicationContext
+        val known = loadKnown(app)
+        var found = pass(app)
+        var passes = 1
+        val knownHosts = known.map { it.host }.toSet()
+        if (knownHosts.any { h -> found.none { it.host == h } } || found.isEmpty()) { found = merge(found, pass(app)); passes = 2 }
+        // Thiết bị đã biết mà quét không thấy: thử kết nối trực tiếp tới cổng của nó
+        val back = known.filter { k -> found.none { it.kind == k.kind && (it.id == k.id || it.host == k.host && it.name == k.name) } }
+            .map { k -> async(Dispatchers.IO) { if (reachable(k.host, if (k.kind == "cast") 8009 else k.port)) k else null } }.awaitAll().filterNotNull()
+        val all = merge(found, back)
+        saveKnown(app, all)
+        report = "Quét $passes lượt · UPnP ${all.count { it.kind == "upnp" }} · Google Cast ${all.count { it.kind == "cast" }}" +
+            (if (back.isNotEmpty()) " (${back.size} thiết bị nhớ từ lần trước, vẫn trả lời)" else "") + " · SSDP $lastReplies phản hồi"
+        all.sortedBy { it.name.lowercase() }
+    }
+
+    @Volatile private var lastReplies = 0
+
+    private fun merge(a: List<Renderer>, b: List<Renderer>): List<Renderer> =
+        (a + b).distinctBy { it.kind + "|" + it.id }
+
+    private fun reachable(host: String, port: Int): Boolean {
+        if (port <= 0) return false
+        return runCatching { java.net.Socket().use { it.connect(InetSocketAddress(host, port), 1500); true } }.getOrDefault(false)
+    }
+
+    private suspend fun pass(app: Context): List<Renderer> = coroutineScope {
         val c = async(Dispatchers.IO) { runCatching { cast(app) }.getOrDefault(emptyList()) }
+        val m = async(Dispatchers.IO) { runCatching { castMdns(app) }.getOrDefault(emptyList()) }
         val u = async(Dispatchers.IO) { runCatching { upnp(app) }.getOrDefault(Triple(emptyList<Renderer>(), 0, 0)) }
-        val casts = c.await()
-        val (ups, replies, addrs) = u.await()
+        val casts = merge(c.await(), m.await())
+        val (ups, replies, _) = u.await()
+        lastReplies = replies
         // Loa vừa có Google Cast vừa có UPnP (JBL L75ms…): nếu SSDP đa hướng không thấy, hỏi thẳng địa chỉ IP mà Cast đã báo.
         val missing = casts.map { it.host }.distinct().filter { h -> ups.none { it.host == h } }
         val extra = missing.map { h -> async(Dispatchers.IO) { runCatching { probeHost(h) }.getOrNull() } }.awaitAll().filterNotNull()
-        report = "Quét: SSDP nhận $replies phản hồi từ $addrs địa chỉ · thiết bị UPnP ${ups.size + extra.size}" +
-            (if (extra.isNotEmpty()) " (${extra.size} tìm thấy nhờ hỏi thẳng IP)" else "") + " · Google Cast ${casts.size}"
-        (ups + extra + casts).distinctBy { it.kind + "|" + it.id }.sortedBy { it.name.lowercase() }
+        merge(merge(ups, extra), casts)
+    }
+
+    private fun castMdns(ctx: Context): List<Renderer> {
+        val wifi = ctx.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val lock = runCatching { wifi?.createMulticastLock("grapeplay-m")?.also { it.setReferenceCounted(false); it.acquire() } }.getOrNull()
+        try {
+            return Mdns.browse("_googlecast._tcp.local.", 4500).map { h ->
+                Renderer("cast", h.txt["fn"].orEmpty().ifEmpty { h.instance }, h.txt["id"].orEmpty().ifEmpty { h.instance }, h.host, h.port)
+            }
+        } finally { runCatching { lock?.release() } }
+    }
+
+    // ---------------- Nhớ thiết bị đã thấy ----------------
+    private fun loadKnown(ctx: Context): List<Renderer> = runCatching {
+        val arr = org.json.JSONArray(ctx.getSharedPreferences("renderers", Context.MODE_PRIVATE).getString("known", "[]"))
+        (0 until arr.length()).map { i -> arr.getJSONObject(i).let {
+            Renderer(it.getString("kind"), it.getString("name"), it.getString("id"), it.getString("host"), it.optInt("port"), it.optString("av"), it.optString("rc"))
+        } }
+    }.getOrDefault(emptyList())
+
+    private fun saveKnown(ctx: Context, list: List<Renderer>) {
+        runCatching {
+            val arr = org.json.JSONArray()
+            list.take(40).forEach { r -> arr.put(org.json.JSONObject().put("kind", r.kind).put("name", r.name).put("id", r.id).put("host", r.host).put("port", r.port).put("av", r.avCtrl).put("rc", r.rcCtrl)) }
+            ctx.getSharedPreferences("renderers", Context.MODE_PRIVATE).edit().putString("known", arr.toString()).apply()
+        }
     }
 
     // ---------------- UPnP MediaRenderer (SSDP) ----------------

@@ -350,8 +350,8 @@ fun AboutDialog(onClose: () -> Unit) {
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     val compact = LocalCompact.current
     @Composable fun CloseBar() {
-        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
-            Focusable(onClose, Modifier.width(200.dp), requester = first) { T("Đóng", 20, C.Gold, Modifier.align(Alignment.Center).padding(20.dp, 10.dp), bold = true) }
+        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = if (compact) 16.dp else 8.dp), contentAlignment = Alignment.Center) {
+            Focusable(onClose, Modifier.width(if (compact) 200.dp else 130.dp), requester = first) { T("Đóng", if (compact) 20 else 14, C.Gold, Modifier.align(Alignment.Center).padding(if (compact) 20.dp else 12.dp, if (compact) 10.dp else 6.dp), bold = true) }
         }
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -359,14 +359,14 @@ fun AboutDialog(onClose: () -> Unit) {
             Modifier.dlgW(980).dlgH(900).clip(RoundedCornerShape(18.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)).verticalScroll(rememberScrollState()),
         ) {
             AboutBrand(ver, Modifier.fillMaxWidth().background(C.Bg).padding(horizontal = 20.dp, vertical = 20.dp), true)
-            AboutBody(Modifier.padding(horizontal = 20.dp, vertical = 18.dp))
+            AboutBody(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), true)
             CloseBar()
         } else Column(
-            Modifier.dlgW(1040).clip(RoundedCornerShape(18.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)),
+            Modifier.dlgW(680).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)),
         ) {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                AboutBrand(ver, Modifier.width(300.dp).fillMaxHeight().background(C.Bg).padding(horizontal = 24.dp, vertical = 32.dp), false)
-                AboutBody(Modifier.weight(1f).padding(horizontal = 36.dp, vertical = 30.dp))
+                AboutBrand(ver, Modifier.width(190.dp).fillMaxHeight().background(C.Bg).padding(horizontal = 14.dp, vertical = 18.dp), false)
+                AboutBody(Modifier.weight(1f).padding(horizontal = 22.dp, vertical = 18.dp), false)
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(C.Line))
             CloseBar()
@@ -377,7 +377,7 @@ fun AboutDialog(onClose: () -> Unit) {
 /** Cột nhận diện thương hiệu: logo, tên, mô tả, phiên bản. horizontal = true: xếp ngang (điện thoại). */
 @Composable
 private fun AboutBrand(ver: String, modifier: Modifier, horizontal: Boolean) {
-    @Composable fun pill() { if (ver.isNotEmpty()) Box(Modifier.clip(RoundedCornerShape(50)).border(1.dp, C.Gold, RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 6.dp)) { T("Phiên bản $ver", 17, C.Gold, bold = true) } }
+    @Composable fun pill() { if (ver.isNotEmpty()) Box(Modifier.clip(RoundedCornerShape(50)).border(1.dp, C.Gold, RoundedCornerShape(50)).padding(horizontal = if (horizontal) 16.dp else 10.dp, vertical = if (horizontal) 6.dp else 4.dp)) { T("Phiên bản $ver", if (horizontal) 17 else 12, C.Gold, bold = true) } }
     if (horizontal) Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         GrapeLogo(Modifier.size(64.dp))
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -386,37 +386,39 @@ private fun AboutBrand(ver: String, modifier: Modifier, horizontal: Boolean) {
             pill()
         }
     } else Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)) {
-        GrapeLogo(Modifier.size(96.dp))
-        Wordmark(34)
-        T(if (Device.tv) "Trình phát nhạc hi-end cho Android TV" else "Trình phát nhạc hi-end cho Android", 16, C.Muted, lines = 2)
-        if (ver.isNotEmpty()) { Spacer(Modifier.height(4.dp)); pill() }
+        GrapeLogo(Modifier.size(56.dp))
+        Wordmark(22)
+        T(if (Device.tv) "Trình phát nhạc hi-end cho Android TV" else "Trình phát nhạc hi-end cho Android", 12, C.Muted, lines = 3)
+        if (ver.isNotEmpty()) { Spacer(Modifier.height(2.dp)); pill() }
     }
 }
 
 @Composable
-private fun AboutBody(modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        T("LIMITED EDITION", 13, C.PlumSoft, spaced = true, bold = true)
-        T("Viết tặng Ngọc Nho và các anh em yêu âm thanh", 24, C.Gold, serif = true, bold = true, lines = 3)
+private fun AboutBody(modifier: Modifier, big: Boolean) {
+    val k = if (big) 1f else 0.62f
+    fun f(n: Int) = (n * k).toInt()
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(if (big) 12.dp else 8.dp)) {
+        T("LIMITED EDITION", f(13).coerceAtLeast(10), C.PlumSoft, spaced = true, bold = true)
+        T("Viết tặng Ngọc Nho và các anh em yêu âm thanh", f(24), C.Gold, serif = true, bold = true, lines = 3)
         Box(Modifier.fillMaxWidth().height(1.dp).background(C.Line))
-        T("App được viết dựa trên ý tưởng tặng cho một chuyên gia âm thanh già rất mê âm thanh nhưng không có tiền để đầu tư thiết bị.", 18, C.Text, lines = 5)
-        T("Dùng để cứu vãn vòng đời của chiếc TV Sony Bravia 2015 hiện đã bị sọc màn 🙏🙏🙏🤣", 18, C.Muted, lines = 3)
+        T("App được viết dựa trên ý tưởng tặng cho một chuyên gia âm thanh già rất mê âm thanh nhưng không có tiền để đầu tư thiết bị.", f(18), C.Text, lines = 5)
+        T("Dùng để cứu vãn vòng đời của chiếc TV Sony Bravia 2015 hiện đã bị sọc màn 🙏🙏🙏🤣", f(18), C.Muted, lines = 3)
         Spacer(Modifier.height(2.dp))
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.Bg).padding(horizontal = 20.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.Bg).padding(horizontal = if (big) 20.dp else 12.dp, vertical = if (big) 14.dp else 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            AboutRow("NHÀ PHÁT TRIỂN", "Phan Kim Phụng")
+            AboutRow("NHÀ PHÁT TRIỂN", "Phan Kim Phụng", big)
             Box(Modifier.fillMaxWidth().height(1.dp).background(C.Line))
-            AboutRow("GITHUB", "https://github.com/PhungP/grape2play")
+            AboutRow("GITHUB", "https://github.com/PhungP/grape2play", big)
         }
     }
 }
 
 @Composable
-private fun AboutRow(label: String, value: String) {
+private fun AboutRow(label: String, value: String, big: Boolean = true) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(if (LocalCompact.current) 130.dp else 190.dp)) { T(label, 14, C.Muted, spaced = true) }
-        T(value, 19, C.Text, bold = true, lines = 2)
+        Box(Modifier.width(if (LocalCompact.current) 130.dp else if (big) 190.dp else 110.dp)) { T(label, if (big) 14 else 10, C.Muted, spaced = true) }
+        T(value, if (big) 19 else 12, C.Text, bold = true, lines = 2)
     }
 }
