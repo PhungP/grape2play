@@ -212,6 +212,7 @@ object Lang {
         "CHỐNG LƯU ẢNH MÀN HÌNH OLED" to "OLED BURN-IN PROTECTION",
         "Dịch nhẹ toàn bộ giao diện vài điểm ảnh mỗi phút để các chi tiết cố định (thanh bên, logo, viền) không nằm yên một chỗ, và tự giảm sáng sau 5 phút không thao tác. Bấm phím hoặc chạm màn hình là sáng lại." to "Shifts the whole interface by a few pixels every minute so fixed details (sidebar, logo, borders) never sit still, and dims after 5 minutes without input. Press a key or touch the screen to wake it.",
         "Đổi chế độ khi đang phát: bài hiện tại tự nạp lại ngay theo chế độ mới." to "Changing the mode while playing reloads the current track right away.",
+        "Chưa thấy bản phát hành hợp lệ trên GitHub (cần Release công khai, có đính kèm file .apk)." to "No valid release found on GitHub (it must be a public Release with an attached .apk file).",
         // cập nhật ứng dụng
         "CẬP NHẬT ỨNG DỤNG" to "APP UPDATE", "Chưa kiểm tra cập nhật." to "Not checked for updates yet.",
         "Đang kiểm tra cập nhật…" to "Checking for updates…", "Bạn đang dùng bản mới nhất." to "You are on the latest version.",
@@ -226,6 +227,7 @@ object Lang {
     private val RULES: List<Pair<Regex, String>> = listOf(
         Regex("Đang dùng bản: (.+)") to "Current version: $1",
         Regex("Có bản mới: (.+)") to "New version available: $1",
+        Regex("Bản mới nhất trên GitHub: (.+)") to "Latest version on GitHub: $1",
         Regex("Đang tải… (\\d+)%") to "Downloading… $1%",
         Regex("Lỗi: (.+)") to "Error: $1",
         Regex("Không mở được trình cài đặt: (.+)") to "Could not open the installer: $1",

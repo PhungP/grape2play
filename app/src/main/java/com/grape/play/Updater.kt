@@ -54,7 +54,7 @@ object Updater {
 
     /** true nếu remote mới hơn local (so từng số: 0.8.10 > 0.8.9). */
     fun isNewer(remote: String, local: String): Boolean {
-        fun parts(v: String) = v.trim().removePrefix("v").removePrefix("V").split('.', '-', '+')
+        fun parts(v: String) = v.trim().trimStart { !it.isDigit() }.split('.', '-', '+')
             .map { it.takeWhile { c -> c.isDigit() }.toIntOrNull() ?: 0 }
         val a = parts(remote); val b = parts(local)
         for (i in 0 until maxOf(a.size, b.size)) {
@@ -72,7 +72,7 @@ object Updater {
             if (r.code == 404) return null
             if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
             val j = JSONObject(r.body?.string().orEmpty())
-            val tag = j.optString("tag_name").trim().removePrefix("v").removePrefix("V")
+            val tag = j.optString("tag_name").trim().trimStart { !it.isDigit() }   // chịu được "v0.8.3", "v.0.8.3", "V0.8.3"...
             val assets = j.optJSONArray("assets")
             var url = ""; var size = 0L
             if (assets != null) for (i in 0 until assets.length()) {
@@ -181,7 +181,13 @@ fun UpdateCard() {
         when (st) {
             Updater.St.IDLE -> T("Chưa kiểm tra cập nhật.", 15, C.Muted)
             Updater.St.CHECKING -> T("Đang kiểm tra cập nhật…", 15, C.Muted)
-            Updater.St.UPTODATE -> T("✓ Bạn đang dùng bản mới nhất.", 17, Grade.GREEN.color)
+            Updater.St.UPTODATE -> {
+                val r = rel
+                if (r != null) {
+                    T("✓ Bạn đang dùng bản mới nhất.", 17, Grade.GREEN.color)
+                    T("Bản mới nhất trên GitHub: ${r.version}", 14, C.Muted)
+                } else T("Chưa thấy bản phát hành hợp lệ trên GitHub (cần Release công khai, có đính kèm file .apk).", 15, C.Gold, lines = 3)
+            }
             Updater.St.AVAILABLE -> {
                 val r = rel
                 if (r != null) {
