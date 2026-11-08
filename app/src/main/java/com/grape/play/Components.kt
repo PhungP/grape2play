@@ -82,6 +82,24 @@ fun Modifier.dlgW(maxW: Int): Modifier = layout { m, c ->
     layout(p.width, p.height) { p.placeRelative(0, 0) }
 }
 
+/** Chiều rộng hộp thoại = [f] × chiều rộng màn hình (TV: tỉ lệ cố định, không phụ thuộc kích thước dp). */
+fun Modifier.dlgFrac(f: Float): Modifier = layout { m, c ->
+    val w = (c.maxWidth * f).toInt()
+    val p = m.measure(c.copy(minWidth = w, maxWidth = w))
+    layout(p.width, p.height) { p.placeRelative(0, 0) }
+}
+
+/** Chiều cao hộp thoại = [f] × chiều cao màn hình. */
+fun Modifier.dlgHFrac(f: Float): Modifier = layout { m, c ->
+    val h = (c.maxHeight * f).toInt()
+    val p = m.measure(c.copy(minHeight = h, maxHeight = h))
+    layout(p.width, p.height) { p.placeRelative(0, 0) }
+}
+
+/** Dải cuối trang cuộn: nhận tiêu điểm D-pad để trang cuộn hẳn xuống cuối, không bị cắt chữ ở mép dưới. */
+@Composable
+fun ScrollTail() { Box(Modifier.fillMaxWidth().height(36.dp).focusable()) }
+
 /** Chiều cao tối đa hộp thoại: maxH dp nhưng không quá 92% màn hình. */
 fun Modifier.dlgH(maxH: Int): Modifier = layout { m, c ->
     val h = minOf(maxH.dp.roundToPx(), (c.maxHeight * 0.92f).toInt())

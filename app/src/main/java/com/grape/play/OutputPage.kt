@@ -88,7 +88,7 @@ fun OutputPage(onNav: (Screen) -> Unit) {
         SectionLabel("KHÔNG DÂY — NETWORK PLAYER")
         rnItems.forEach { OutCard(it, null) }
         if (scanning) T("Đang tìm thiết bị…", 15, C.Muted)
-        else if (scanned && Renderers.report.isNotEmpty()) T(Renderers.report, 12, C.Muted, lines = 3)
+        else if (scanned && Renderers.report.isNotEmpty()) T(Renderers.report, 12, C.Muted, lines = 6)
         if (!scanning && scanned && rnItems.isEmpty()) T("Không thấy thiết bị nào. Kiểm tra thiết bị và ${if (Device.tv) "TV" else "máy"} cùng mạng Wi-Fi/LAN, rồi quét lại.", 14, C.Muted, lines = 3)
     }
 
@@ -149,6 +149,7 @@ fun OutputPage(onNav: (Screen) -> Unit) {
             Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 PageHeader("Đầu ra âm thanh", "Phát trên TV hoặc stream tới Network Player")
                 Left(Modifier.fillMaxWidth())
+                ScrollTail()
             }
             Right(Modifier.weight(1f).fillMaxHeight())
         }

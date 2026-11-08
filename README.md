@@ -193,3 +193,10 @@ Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi c�
 - Chống lưu ảnh: thu nhỏ nhẹ thay vì phóng to, nên khi dịch hình menu không bị đẩy sát viền.
 - Cửa sổ Ứng dụng, Phổ tần số, Thoát thu nhỏ (~1/4 màn hình), chữ giảm đồng bộ.
 - "Quét lại" nằm dưới "Cài đặt", "Thoát" ở cuối thanh trái; cả hai cùng cỡ với các nút khác.
+
+## Bản 0.8.6
+- Cửa sổ "Về ứng dụng" và "Nguồn hiển thị" thu nhỏ còn ~1/4 màn hình (kích thước theo tỉ lệ màn hình); sửa chữ "Nhà phát triển" bị cắt.
+- Các trang cuộn (Đầu ra, Nguồn nhạc, Cài đặt) có dải cuối nhận tiêu điểm D-pad để cuộn hết, không mất chữ ở mép dưới.
+- Phát UPnP (Bravia…): TV tự phục vụ ảnh bìa (`/a/…jpg`) và gửi `albumArtURI` + DLNA protocolInfo; nếu TV từ chối metadata thì thử lại không metadata; chọn đúng IP Wi-Fi/LAN trên điện thoại (tránh card 4G).
+- Điều khiển TV từ điện thoại: TV mở máy chủ điều khiển (PIN 6 số ở Cài đặt ▸ Điều khiển từ điện thoại); điện thoại bấm biểu tượng TV ở Thư viện để dò TV, nhập PIN, điều khiển phát/tạm dừng/bài trước-sau/tua/xáo/lặp và tìm bài trong thư viện TV để phát.
+- Cửa sổ thông báo có bản cập nhật mới (tự hiện sau khi mở app): Cập nhật ngay / Để sau.

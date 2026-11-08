@@ -39,9 +39,14 @@ object CloudAuth {
         if (type == "gdrive") GoogleSession.create() else MsSession.create()
     }
 
+    /** IP trong mạng nội bộ: ưu tiên Wi-Fi/Ethernet và dải riêng (192.168.x, 10.x, 172.16-31.x), tránh card 4G/VPN trên điện thoại. */
     fun lanIp(): String? = runCatching {
-        NetworkInterface.getNetworkInterfaces()?.toList()?.filter { it.isUp && !it.isLoopback }
-            ?.flatMap { it.interfaceAddresses }?.map { it.address }?.firstOrNull { it is Inet4Address }?.hostAddress
+        val c = NetworkInterface.getNetworkInterfaces()?.toList()?.filter { it.isUp && !it.isLoopback }.orEmpty()
+            .flatMap { ni -> ni.interfaceAddresses.map { ni.name.lowercase() to it.address } }
+            .filter { it.second is Inet4Address }
+        fun lan(n: String) = n.startsWith("wlan") || n.startsWith("eth") || n.startsWith("ap") || n.startsWith("swlan")
+        (c.firstOrNull { lan(it.first) && it.second.isSiteLocalAddress } ?: c.firstOrNull { it.second.isSiteLocalAddress }
+            ?: c.firstOrNull { lan(it.first) } ?: c.firstOrNull())?.second?.hostAddress
     }.getOrNull()
 }
 

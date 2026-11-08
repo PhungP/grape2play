@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object StreamServer {
     private val tracks = ConcurrentHashMap<String, String>() // id → path
+    private val artTracks = ConcurrentHashMap<String, Track>()
     private val counter = AtomicInteger(0)
     private val pool = Executors.newCachedThreadPool { r -> Thread(r, "grape-stream").also { it.isDaemon = true } }
     @Volatile private var server: ServerSocket? = null
@@ -80,6 +81,28 @@ object StreamServer {
         return "http://$ip:$port/t/$id.${if (asDop) "wav" else t.ext.ifEmpty { "bin" }}"
     }
 
+    /** URL ảnh bìa để TV/loa hiển thị: ảnh http có sẵn dùng luôn, còn lại TV tự phục vụ ảnh (nhúng trong file, cover.jpg, tìm trên mạng). */
+    fun artUrl(t: Track): String? {
+        if (t.art.startsWith("http")) return t.art
+        return runCatching {
+            ensure()
+            val ip = CloudAuth.lanIp() ?: return null
+            val id = Integer.toHexString((t.src + t.folder + t.album).hashCode())
+            if (artTracks.size > 200) artTracks.clear()
+            artTracks[id] = t
+            "http://$ip:$port/a/$id.jpg"
+        }.getOrNull()
+    }
+
+    private fun artBytes(t: Track): ByteArray? {
+        val bmp = kotlinx.coroutines.runBlocking { Covers.get(t) } ?: return null
+        val m = maxOf(bmp.width, bmp.height)
+        val b = if (m > 640) android.graphics.Bitmap.createScaledBitmap(bmp, bmp.width * 640 / m, bmp.height * 640 / m, true) else bmp
+        val o = java.io.ByteArrayOutputStream()
+        b.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, o)
+        return o.toByteArray()
+    }
+
     private fun readLine(i: InputStream): String? {
         val sb = StringBuilder()
         while (true) {
@@ -110,6 +133,13 @@ object StreamServer {
                     out.write("HTTP/1.1 $code $text\r\n${extra}Connection: close\r\nContent-Length: ${body?.size ?: 0}\r\n\r\n".toByteArray())
                     if (body != null && method != "HEAD") out.write(body)
                     out.flush()
+                }
+                if (target.startsWith("/a/")) {
+                    val at = artTracks[target.substringAfter("/a/").substringBefore('?').substringBeforeLast('.')]
+                    val bytes = at?.let { runCatching { artBytes(it) }.getOrNull() }
+                    if (bytes == null) reply(404, "Not Found")
+                    else reply(200, "OK", "Content-Type: image/jpeg\r\ncontentFeatures.dlna.org: DLNA.ORG_PN=JPEG_SM;DLNA.ORG_OP=00;DLNA.ORG_CI=0\r\nAccess-Control-Allow-Origin: *\r\n", bytes)
+                    return
                 }
                 val id = target.substringAfter("/t/", "").substringBefore('?').substringBeforeLast('.')
                 val path = tracks[id]

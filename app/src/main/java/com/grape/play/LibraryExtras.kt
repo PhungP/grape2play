@@ -24,24 +24,24 @@ fun SourceVisibilityDialog(sources: List<Source>, onClose: () -> Unit) {
     val rows = listOf("local" to (if (Device.tv) "Bộ nhớ TV & USB" else "Bộ nhớ máy & USB")) + sources.map { it.id to it.name }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            Modifier.dlgW(760).clip(RoundedCornerShape(18.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.dlgFrac(0.5f).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(14.dp)).padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            T("NGUỒN HIỂN THỊ Ở THƯ VIỆN", 13, C.Muted, spaced = true)
-            T("Bấm vào từng nguồn để hiện hoặc ẩn. Nguồn bị ẩn không xuất hiện trong Thư viện và không lẫn vào mục “Tất cả”.", 15, C.Muted, lines = 3)
-            Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            T("NGUỒN HIỂN THỊ Ở THƯ VIỆN", 11, C.Muted, spaced = true)
+            T("Bấm vào từng nguồn để hiện hoặc ẩn. Nguồn bị ẩn không xuất hiện trong Thư viện và không lẫn vào mục “Tất cả”.", 12, C.Muted, lines = 3)
+            Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 rows.forEachIndexed { i, (id, name) ->
                     val vis = id !in hidden
                     Focusable({ SourceVisibility.toggle(id) }, Modifier.fillMaxWidth(), RoundedCornerShape(8.dp), selected = vis, requester = if (i == 0) first else null) {
-                        Row(Modifier.padding(16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            T(name, 20, if (vis) C.Gold else C.Muted, Modifier.weight(1f), lines = 2)
-                            T(if (vis) "● Hiện" else "○ Ẩn", 18, if (vis) C.Gold else C.Muted, bold = true)
+                        Row(Modifier.padding(12.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            T(name, 14, if (vis) C.Gold else C.Muted, Modifier.weight(1f), lines = 2)
+                            T(if (vis) "● Hiện" else "○ Ẩn", 13, if (vis) C.Gold else C.Muted, bold = true)
                         }
                     }
                 }
             }
             Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
-                Focusable(onClose, Modifier.width(200.dp)) { T("Đóng", 20, C.Gold, Modifier.align(Alignment.Center).padding(20.dp, 10.dp), bold = true) }
+                Focusable(onClose, Modifier.width(130.dp)) { T("Đóng", 14, C.Gold, Modifier.align(Alignment.Center).padding(12.dp, 6.dp), bold = true) }
             }
         }
     }

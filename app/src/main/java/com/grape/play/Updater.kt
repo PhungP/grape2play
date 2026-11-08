@@ -6,6 +6,15 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +57,8 @@ object Updater {
     val error = mutableStateOf("")
     private var apk: File? = null
     private var autoDone = false
+    /** true = hiện cửa sổ thông báo có bản mới (đặt khi tự kiểm tra thấy bản mới; tắt khi người dùng chọn "Để sau"). */
+    val prompt = mutableStateOf(false)
 
     fun currentVersion(ctx: Context): String =
         runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "0"
@@ -102,6 +113,7 @@ object Updater {
         autoDone = true
         check(ctx)
         if (state.value == St.ERROR) { state.value = St.IDLE; error.value = "" }
+        if (state.value == St.AVAILABLE) prompt.value = true
     }
 
     private fun download(ctx: Context, rel: Release): File {
@@ -207,5 +219,55 @@ fun UpdateCard() {
             else -> Btn("Kiểm tra cập nhật") { msg = ""; scope.launch { Updater.check(ctx) } }
         }
         T("Cập nhật được tải từ trang phát hành GitHub của GRAPEPlay. Bản mới sẽ cài đè, không mất nguồn nhạc và cài đặt.", 13, C.Muted, lines = 3)
+    }
+}
+
+/** Cửa sổ thông báo khi có bản mới: tự hiện sau khi mở app. Nút "Để sau" đóng cửa sổ (lần mở app sau sẽ nhắc lại). */
+@Composable
+fun UpdateDialog() {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val prompt by Updater.prompt
+    val st by Updater.state
+    val rel by Updater.release
+    val pct by Updater.progress
+    val err by Updater.error
+    var msg by remember { mutableStateOf("") }
+    val first = remember { FocusRequester() }
+    val cur = remember { Updater.currentVersion(ctx) }
+    LaunchedEffect(Unit) { Updater.autoCheck(ctx) }
+    val r = rel
+    if (!prompt || r == null || st == Updater.St.UPTODATE || st == Updater.St.IDLE || st == Updater.St.CHECKING) return
+    val compact = LocalCompact.current
+    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    val big = compact
+    fun f(n: Int) = if (big) n else (n * 0.62f).toInt().coerceAtLeast(10)
+    Dialog(onDismissRequest = { if (st != Updater.St.DOWNLOADING) Updater.prompt.value = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            (if (compact) Modifier.dlgW(520) else Modifier.dlgFrac(0.4f)).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(14.dp)).dlgPad(26, 18),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            T("CẬP NHẬT ỨNG DỤNG", f(13), C.Muted, spaced = true)
+            T("Có bản mới ${r.version}", f(30), serif = true, bold = true)
+            T("Bạn đang dùng bản $cur" + (if (r.size > 0) " · dung lượng ${mb(r.size)}" else ""), f(17), C.Muted, lines = 2)
+            if (r.notes.isNotEmpty()) T(r.notes.lines().filter { it.isNotBlank() }.take(5).joinToString("\n"), f(16), C.Text, lines = 5)
+            when (st) {
+                Updater.St.DOWNLOADING -> T("Đang tải… $pct%", f(18), C.Gold, bold = true)
+                Updater.St.READY -> T("✓ Đã tải xong, sẵn sàng cài đặt.", f(17), Grade.GREEN.color)
+                Updater.St.ERROR -> T("⚠ Lỗi: $err", f(15), C.Gold, lines = 3)
+                else -> {}
+            }
+            if (msg.isNotEmpty()) T(msg, f(15), C.Gold, lines = 4)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, androidx.compose.ui.Alignment.End)) {
+                if (st != Updater.St.DOWNLOADING) Focusable({ Updater.prompt.value = false }) { T("Để sau", f(18), C.Muted, Modifier.padding(if (big) 22.dp else 14.dp, if (big) 10.dp else 6.dp), bold = true) }
+                if (st != Updater.St.DOWNLOADING) Focusable({
+                    msg = ""
+                    if (st == Updater.St.READY) msg = Updater.install(ctx).orEmpty()
+                    else scope.launch { msg = Updater.downloadAndInstall(ctx).orEmpty() }
+                }, requester = first) {
+                    T(if (st == Updater.St.READY) "Cài đặt ngay" else if (st == Updater.St.ERROR) "Thử lại" else "Cập nhật ngay", f(18), C.Gold, Modifier.padding(if (big) 22.dp else 14.dp, if (big) 10.dp else 6.dp), bold = true)
+                }
+            }
+        }
     }
 }

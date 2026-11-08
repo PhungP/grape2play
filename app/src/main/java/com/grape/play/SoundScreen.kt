@@ -44,12 +44,14 @@ fun SoundScreen(onNav: (Screen) -> Unit, onSources: () -> Unit, onOut: () -> Uni
                 DsdCard()
                 BackgroundCard()
                 UpdateCard()
+                RemoteHostCard()
                 TvHomeCard()
                 CoverWebCard()
                 LanguageCard()
                 Focusable({ showAbout = true }, Modifier.fillMaxWidth(), RoundedCornerShape(12.dp)) {
                     T("Về ứng dụng (About)", 20, C.Gold, Modifier.padding(20.dp, 14.dp), bold = true)
                 }
+                ScrollTail()
             }
             EqPanel(Modifier.weight(1.15f).fillMaxHeight())
         }
@@ -362,7 +364,7 @@ fun AboutDialog(onClose: () -> Unit) {
             AboutBody(Modifier.padding(horizontal = 20.dp, vertical = 18.dp), true)
             CloseBar()
         } else Column(
-            Modifier.dlgW(680).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)),
+            Modifier.dlgFrac(0.5f).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(18.dp)),
         ) {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                 AboutBrand(ver, Modifier.width(190.dp).fillMaxHeight().background(C.Bg).padding(horizontal = 14.dp, vertical = 18.dp), false)
@@ -417,8 +419,11 @@ private fun AboutBody(modifier: Modifier, big: Boolean) {
 
 @Composable
 private fun AboutRow(label: String, value: String, big: Boolean = true) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(if (LocalCompact.current) 130.dp else if (big) 190.dp else 110.dp)) { T(label, if (big) 14 else 10, C.Muted, spaced = true) }
-        T(value, if (big) 19 else 12, C.Text, bold = true, lines = 2)
+    if (big) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(if (LocalCompact.current) 130.dp else 190.dp)) { T(label, 14, C.Muted, spaced = true) }
+        T(value, 19, C.Text, bold = true, lines = 2)
+    } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        T(label, 10, C.Muted, spaced = true)
+        T(value, 12, C.Text, bold = true, lines = 2)
     }
 }

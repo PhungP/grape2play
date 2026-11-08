@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
         BurnIn.init(applicationContext)
         SourceVisibility.init(applicationContext)
         Playback.init(applicationContext)
+        if (isTv) RemoteHost.start(applicationContext) else TvLink.init(applicationContext)
         perm = ContextCompat.checkSelfPermission(this, storagePerm) == PackageManager.PERMISSION_GRANTED
         permDone = perm
         if (isTv) TvHome.schedule(applicationContext, 15_000)   // làm mới hàng trên trang chủ TV sau khi thư viện nạp xong
@@ -122,6 +123,7 @@ class MainActivity : ComponentActivity() {
                             Screen.SOURCES -> SourcesPage { screen = it }
                             Screen.OUTPUT -> OutputPage { screen = it }
                         }
+                        if (permDone) UpdateDialog()
                         if (Overlay.spectrum.value) SpectrumDialog { Overlay.spectrum.value = false }
                         if (Overlay.exit.value) ExitDialog(onStay = { Overlay.exit.value = false }, onExit = { Overlay.exit.value = false; exitApp() })
                         if (permDone && askBg) BackgroundDialog(onAllow = { askBg = false; askBackground() }, onLater = { askBg = false; BackgroundAccess.asked = true })

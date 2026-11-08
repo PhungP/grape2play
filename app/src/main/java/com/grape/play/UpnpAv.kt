@@ -48,13 +48,14 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     }
 
     private fun didl(t: Track, url: String): String {
-        val art = if (t.art.startsWith("http")) "<upnp:albumArtURI>${xml(t.art)}</upnp:albumArtURI>" else ""
+        val au = StreamServer.artUrl(t)
+        val art = if (au != null) "<upnp:albumArtURI xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\" dlna:profileID=\"JPEG_SM\">${xml(au)}</upnp:albumArtURI>" else ""
         val dop = StreamServer.isDopUrl(url)
         val mime = if (dop) "audio/wav" else StreamServer.mime(t.ext)
         val dur = (if (t.durationMs > 0) " duration=\"${hms(t.durationMs)}\"" else "") + (if (dop) " bitsPerSample=\"24\" sampleFrequency=\"${DopPcm.outRate()}\"" else "")
         return "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">" +
             "<item id=\"0\" parentID=\"-1\" restricted=\"1\"><dc:title>${xml(t.title)}</dc:title><upnp:artist>${xml(t.artist)}</upnp:artist><upnp:album>${xml(t.album)}</upnp:album>" +
-            "$art<upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo=\"http-get:*:$mime:*\"$dur>${xml(url)}</res></item></DIDL-Lite>"
+            "$art<upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo=\"http-get:*:$mime:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\"$dur>${xml(url)}</res></item></DIDL-Lite>"
     }
 
     // ---- Trình tự nạp bài ----
@@ -108,7 +109,12 @@ class UpnpController(private val r: Renderer) : RemoteController() {
                 val url = StreamServer.urlFor(t, mode)
                 settle(my)
                 if (my != seq) return@launch
-                retrying(my) { call("SetAVTransportURI", "<CurrentURI>${xml(url)}</CurrentURI><CurrentURIMetaData>${xml(didl(t, url))}</CurrentURIMetaData>") }
+                try {
+                    retrying(my) { call("SetAVTransportURI", "<CurrentURI>${xml(url)}</CurrentURI><CurrentURIMetaData>${xml(didl(t, url))}</CurrentURIMetaData>") }
+                } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                    // Một số TV (Bravia đời cũ) từ chối metadata DIDL: thử lại với metadata rỗng
+                    retrying(my, 3) { call("SetAVTransportURI", "<CurrentURI>${xml(url)}</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>") }
+                }
                 waitReady(my)
                 if (my != seq) return@launch
                 retrying(my) { call("Play", "<Speed>1</Speed>") }

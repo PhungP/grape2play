@@ -190,6 +190,7 @@ fun SourcesPage(onNav: (Screen) -> Unit) {
             Column(Modifier.weight(0.9f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 PageHeader("Thêm nguồn nhạc", "Chọn nơi chứa nhạc của bạn")
                 TypeList(Modifier.fillMaxWidth())
+                ScrollTail()
             }
             Detail(Modifier.weight(1.1f).fillMaxHeight())
         }

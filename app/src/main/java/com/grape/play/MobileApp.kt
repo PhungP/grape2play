@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Visibility
@@ -194,6 +195,8 @@ private fun MobileLibrary(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen)
     var srcFilter by remember { mutableStateOf<String?>(null) }
     var live by remember { mutableStateOf(false) }
     var showVis by remember { mutableStateOf(false) }
+    var showTv by remember { mutableStateOf(false) }
+    if (showTv) TvRemoteDialog { showTv = false }
     LaunchedEffect(hidden) { if (srcFilter != null && srcFilter in hidden) { srcFilter = null; sel = null; live = false } }
     val srcSource = srcFilter?.let { SourceStore.get(it) }
     val dlnaLive = live && srcSource?.type == "dlna"
@@ -209,6 +212,7 @@ private fun MobileLibrary(hasPerm: Boolean, askPerm: () -> Unit, onNav: (Screen)
             Spacer(Modifier.weight(1f))
             if (scanning) IconBtn(Icons.Filled.Close, "Dừng quét") { Library.cancelScan() }
             else IconBtn(Icons.Filled.Refresh, "Quét lại") { Library.rescanAllAsync(ctx) }
+            IconBtn(Icons.Filled.Tv, "Điều khiển TV") { showTv = true }
             IconBtn(Icons.Filled.Speaker, "Đầu ra âm thanh") { onOut() }
             IconBtn(Icons.Filled.Visibility, "Nguồn hiển thị") { showVis = true }
             IconBtn(Icons.Filled.Add, "Thêm nguồn nhạc") { onAdd() }

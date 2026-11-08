@@ -120,7 +120,7 @@ fun SpectrumDialog(onClose: () -> Unit) {
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            Modifier.dlgW(if (compact) 1360 else 800).dlgH(if (compact) 820 else 460).clip(RoundedCornerShape(16.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(16.dp))
+            (if (compact) Modifier.dlgW(1360).dlgH(820) else Modifier.dlgFrac(0.5f).dlgHFrac(0.5f)).clip(RoundedCornerShape(16.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(16.dp))
                 .then(if (compact) Modifier.verticalScroll(rememberScrollState()) else Modifier).dlgPad(if (compact) 36 else 20, if (compact) 24 else 12),
             verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 4.dp),
         ) {
@@ -242,7 +242,7 @@ fun ExitDialog(onStay: () -> Unit, onExit: () -> Unit) {
     LaunchedEffect(Unit) { runCatching { stay.requestFocus() } }
     Dialog(onDismissRequest = onStay, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            Modifier.dlgW(400).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(14.dp)).dlgPad(24, 16),
+            Modifier.dlgFrac(0.3f).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(14.dp)).dlgPad(24, 16),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             T("Thoát GRAPEPlay?", 20, serif = true)
