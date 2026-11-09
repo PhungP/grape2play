@@ -29,6 +29,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     @Volatile private var armed: Track? = null
     @Volatile private var armedKey = ""
     @Volatile private var armTried = -1
+    @Volatile private var lastPos = 0L
 
     init { scope.launch { pollLoop() } }
 
@@ -128,7 +129,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     // ---- RemoteController ----
     override fun load(t: Track, startMs: Long) {
         val my = ++seq
-        active = false; sawPlaying = false; userStopped = false; armed = null; armedKey = ""
+        active = false; sawPlaying = false; userStopped = false; armed = null; armedKey = ""; lastPos = 0
         trackDur = t.durationMs
         scope.launch {
             try {
@@ -171,12 +172,15 @@ class UpnpController(private val r: Renderer) : RemoteController() {
                 val pi = call("GetPositionInfo", "")
                 val pos = parseHms(tag(pi, "RelTime"))
                 val dur = parseHms(tag(pi, "TrackDuration")).takeIf { it > 0 } ?: trackDur
+                val prevPos = lastPos; lastPos = pos
                 // Thiết bị đã tự qua bài đã nạp sẵn?
                 val a = armed
                 if (a != null) {
                     val cu = unescape(tag(pi, "TrackURI"))
-                    if (cu.isNotEmpty() && key(cu) == armedKey) {
-                        armed = null; armedKey = ""; armTried = -1
+                    // Dự phòng khi thiết bị viết lại URL (TrackURI khác): bài trước đã gần hết, giờ vị trí về gần 0 và đang PLAYING → đã tự qua bài kế
+                    val wrapped = st == "PLAYING" && trackDur > 0 && prevPos >= trackDur - 4000 && pos in 0..4000
+                    if ((cu.isNotEmpty() && key(cu) == armedKey) || wrapped) {
+                        armed = null; armedKey = ""; armTried = -1; lastPos = 0
                         trackDur = a.durationMs; sawPlaying = true; loadedAt = System.currentTimeMillis(); pendingSeek = 0
                         onAdvanced(a)
                         continue

@@ -212,3 +212,6 @@ Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi c�
 - Phát tới thiết bị từ xa (UPnP/Cast): app giữ khoá thức CPU + Wi-Fi hiệu suất cao khi đang phát, tránh bị hệ thống làm chậm/ngắt khi tắt màn hình (không cứu được TV đã vào standby thật).
 - UPnP gapless: nạp sẵn bài kế tiếp bằng SetNextAVTransportURI; thiết bị hỗ trợ sẽ tự qua bài, app nhận biết (TrackURI đổi) và cập nhật hiển thị. Thiết bị không hỗ trợ tự quay về cách cũ (app nạp bài khi hết bài).
 - Cửa sổ "Đã cập nhật lên bản X" hiện một lần sau khi cài bản mới, kèm ghi chú phát hành nếu có.
+
+## Bản 0.8.9
+- UPnP gapless: thêm cách nhận biết dự phòng khi loa tự qua bài nhưng viết lại URL (bài trước gần hết, vị trí về gần 0 và đang phát) để app không nạp lặp lại bài.
