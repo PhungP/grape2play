@@ -4,6 +4,8 @@ package com.grape.play
 import android.media.AudioDeviceInfo
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -71,13 +73,14 @@ fun OutputPage(onNav: (Screen) -> Unit) {
 
     val activeKey = remote?.let { "rn:${it.id}" } ?: "tv:$dev"
     var selKey by remember { mutableStateOf(activeKey) }
+    var pending by remember { mutableStateOf<OutItem?>(null) }
     val sel = (tvItems + rnItems).firstOrNull { it.key == selKey } ?: tvItems.first()
 
     @Composable
     fun OutCard(o: OutItem, req: FocusRequester?) {
         val chosen = o.key == selKey
         val active = o.key == activeKey
-        OptionCard(o.icon, o.title, o.sub, chosen, tag = if (active) "ĐANG DÙNG" else if (chosen) "ĐANG CHỌN" else "", requester = req) { selKey = o.key }
+        OptionCard(o.icon, o.title, o.sub, chosen, tag = if (active) "ĐANG DÙNG" else if (chosen) "ĐANG CHỌN" else "", requester = req, onFocus = { selKey = o.key }) { selKey = o.key; if (!active) pending = o }
     }
 
     @Composable
@@ -94,7 +97,7 @@ fun OutputPage(onNav: (Screen) -> Unit) {
 
     @Composable
     fun Right(m: Modifier) = DetailPanel(m, scroll = !compact) {
-        SectionLabel("THIẾT BỊ ĐANG CHỌN")
+        SectionLabel("THÔNG TIN THIẾT BỊ")
         T(sel.title, if (compact) 28 else 38, serif = true, lines = 2)
         T(sel.sub, 16, C.Muted, lines = 2)
         val r = sel.r
@@ -132,10 +135,6 @@ fun OutputPage(onNav: (Screen) -> Unit) {
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
             GhostButton(if (scanning) "Đang quét…" else "Quét lại thiết bị") { scan() }
-            PrimaryButton(if (sel.key == activeKey) "Đang dùng đầu ra này" else "Dùng đầu ra này") {
-                if (sel.tv) { dev = sel.type; commit(); if (remote != null) Playback.setTarget(null) }
-                else sel.r?.let { Playback.setTarget(it) }
-            }
         }
     }
 
@@ -154,4 +153,28 @@ fun OutputPage(onNav: (Screen) -> Unit) {
             Right(Modifier.weight(1f).fillMaxHeight())
         }
     }
+    pending?.let { p ->
+        androidx.compose.ui.window.Dialog(onDismissRequest = { pending = null }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            val ok = remember { FocusRequester() }
+            LaunchedEffect(Unit) { runCatching { ok.requestFocus() } }
+            val sm = !compact
+            Column(
+                (if (compact) Modifier.dlgW(520) else Modifier.dlgFrac(0.3f)).clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(C.Panel)
+                    .border(1.dp, C.Line, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).dlgPad(24, 16),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                T("Chọn đầu ra này?", if (sm) 18 else 24, serif = true)
+                T(p.title, if (sm) 15 else 20, C.Gold, bold = true, lines = 2)
+                T(p.sub, if (sm) 12 else 15, C.Muted, lines = 2)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
+                    Focusable({ pending = null }) { T("Huỷ", if (sm) 14 else 18, C.Muted, Modifier.padding(if (sm) 18.dp else 24.dp, if (sm) 7.dp else 10.dp), bold = true) }
+                    Focusable({
+                        pending = null
+                        if (p.tv) { dev = p.type; commit(); if (remote != null) Playback.setTarget(null) } else p.r?.let { Playback.setTarget(it) }
+                    }, requester = ok) { T("Chọn", if (sm) 14 else 18, C.Gold, Modifier.padding(if (sm) 18.dp else 24.dp, if (sm) 7.dp else 10.dp), bold = true) }
+                }
+            }
+        }
+    }
+
 }

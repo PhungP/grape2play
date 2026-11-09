@@ -130,14 +130,14 @@ fun FieldPair(a: @Composable (Modifier) -> Unit, b: @Composable (Modifier) -> Un
 @Composable
 fun Focusable(onClick: () -> Unit, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(8.dp),
               selected: Boolean = false, ring: Color = C.Gold, requester: FocusRequester? = null,
-              onLong: (() -> Unit)? = null,
+              onLong: (() -> Unit)? = null, onFocus: (() -> Unit)? = null,
               content: @Composable BoxScope.(Boolean) -> Unit) {
     var f by remember { mutableStateOf(false) }
     val longDone = remember { BooleanArray(1) }
     var m = modifier
     if (requester != null) m = m.focusRequester(requester)
     Box(
-        m.onFocusChanged { f = it.isFocused }
+        m.onFocusChanged { f = it.isFocused; if (it.isFocused) onFocus?.invoke() }
             .onPreviewKeyEvent { e ->
                 val lg = onLong
                 if (lg == null) false

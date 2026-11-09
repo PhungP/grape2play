@@ -21,6 +21,8 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.DefaultLoadControl
+import android.os.SystemClock
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
@@ -55,6 +57,21 @@ object Playback {
     private val retried = HashSet<String>()
     private var errCount = 0
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // ---- Đo thời gian chuyển bài: từ lúc bấm đến lúc thật sự có tiếng; quá 3 giây thì báo đường truyền không ổn định ----
+    const val SWITCH_LIMIT_MS = 3000L
+    val slow = MutableStateFlow<String?>(null)
+    @Volatile private var switchAt = 0L
+    private fun markSwitch() { switchAt = SystemClock.elapsedRealtime() }
+    private fun checkSwitch() {
+        val s = switchAt; if (s == 0L) return
+        switchAt = 0
+        val el = SystemClock.elapsedRealtime() - s
+        if (el > SWITCH_LIMIT_MS) {
+            slow.value = "Tốc độ đường truyền không ổn định: chuyển bài mất %.1f giây (mong muốn dưới 3 giây)".format(el / 1000.0)
+            main.launch { delay(8000); if (slow.value?.startsWith("Tốc độ") == true) slow.value = null }
+        } else slow.value = null
+    }
 
     private fun detail(e: Throwable): String {
         val sb = StringBuilder(); var t: Throwable? = e; var n = 0
@@ -120,7 +137,7 @@ object Playback {
     }
 
     private val listener = object : Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) { if (rc == null) playing.value = isPlaying }
+        override fun onIsPlayingChanged(isPlaying: Boolean) { if (rc == null) { playing.value = isPlaying; if (isPlaying) checkSwitch() } }
         override fun onMediaItemTransition(m: MediaItem?, reason: Int) { sync() }
         override fun onPlaybackStateChanged(s: Int) { if (s == Player.STATE_READY && exo.duration > 0) duration.value = exo.duration }
         override fun onShuffleModeEnabledChanged(b: Boolean) { shuffle.value = b }
@@ -171,6 +188,10 @@ object Playback {
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
+            .apply {
+                if (AudioSettings.gapless)
+                    setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(60_000, 90_000, 1_500, 3_000).setPrioritizeTimeOverSizeThresholds(true).build())
+            }
             .build()
         p.repeatMode = Player.REPEAT_MODE_ALL
         p.addListener(listener)
@@ -215,12 +236,12 @@ object Playback {
     fun play(tracks: List<Track>, start: Int, shuffleOn: Boolean? = null) {
         if (tracks.isEmpty()) return
         shuffleOn?.let { exo.shuffleModeEnabled = it }
-        queue.value = tracks; retried.clear(); errCount = 0
+        queue.value = tracks; retried.clear(); errCount = 0; markSwitch()
         exo.setMediaItems(tracks.map { MediaItem.fromUri(Remote.toUri(it)) }, start, 0L)
         if (rc != null) { sync(); loadRemote(start) } else { exo.prepare(); exo.play(); sync() }
     }
     fun playShuffled(tracks: List<Track>) = play(tracks, tracks.indices.random(), true)
-    fun jump(i: Int) { if (rc != null) loadRemote(i) else { exo.seekTo(i, 0L); exo.play() } }
+    fun jump(i: Int) { markSwitch(); if (rc != null) loadRemote(i) else { exo.seekTo(i, 0L); exo.play() } }
     fun toggle() {
         val c = rc
         if (c != null) {
@@ -232,9 +253,11 @@ object Playback {
         else if (exo.isPlaying) exo.pause() else exo.play()
     }
     fun next() {
+        markSwitch()
         if (rc != null) { val n = exo.nextMediaItemIndex; if (n != C.INDEX_UNSET) loadRemote(n) } else exo.seekToNextMediaItem()
     }
     fun prev() {
+        if (position.value <= 3000) markSwitch()
         if (rc != null) {
             if (position.value > 3000) { rc?.seek(0); position.value = 0 }
             else { val p = exo.previousMediaItemIndex; if (p != C.INDEX_UNSET) loadRemote(p) else { rc?.seek(0); position.value = 0 } }
@@ -271,7 +294,7 @@ object Playback {
         info.value = null; probeJob?.cancel()
         Recents.add(t.path); TvHome.schedule(appCtx, 30_000)
         probeJob = CoroutineScope(Dispatchers.IO).launch { info.value = Probe.probe(t) }
-        playing.value = true
+        playing.value = true; markSwitch()
         c.load(t, startMs)
     }
 
@@ -310,7 +333,7 @@ object Playback {
         }
         exo.stop()
         val c = if (r.kind == "cast") CastController(r) else UpnpController(r)
-        c.onState = { p, ps, d -> playing.value = p; position.value = ps; if (d > 0) duration.value = d }
+        c.onState = { p, ps, d -> playing.value = p; position.value = ps; if (d > 0) duration.value = d; if (p && ps > 0) main.launch { checkSwitch() } }
         c.onEnded = { main.launch { if (rc === c) remoteEnded() } }
         c.onError = { m -> main.launch { if (rc === c) { error.value = m; playing.value = false } } }
         rc = c; remote.value = r; outName.value = r.label

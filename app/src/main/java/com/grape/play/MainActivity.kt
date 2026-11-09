@@ -15,6 +15,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -91,7 +96,6 @@ class MainActivity : ComponentActivity() {
         BurnIn.init(applicationContext)
         SourceVisibility.init(applicationContext)
         Playback.init(applicationContext)
-        if (isTv) RemoteHost.start(applicationContext) else TvLink.init(applicationContext)
         perm = ContextCompat.checkSelfPermission(this, storagePerm) == PackageManager.PERMISSION_GRANTED
         permDone = perm
         if (isTv) TvHome.schedule(applicationContext, 15_000)   // làm mới hàng trên trang chủ TV sau khi thư viện nạp xong
@@ -122,6 +126,13 @@ class MainActivity : ComponentActivity() {
                             Screen.SOUND -> SoundScreen({ screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT })
                             Screen.SOURCES -> SourcesPage { screen = it }
                             Screen.OUTPUT -> OutputPage { screen = it }
+                        }
+                        val slowMsg by Playback.slow.collectAsState()
+                        slowMsg?.let { m ->
+                            Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
+                                Box(Modifier.padding(bottom = 56.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(C.Panel)
+                                    .border(1.dp, C.Gold, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(horizontal = 16.dp, vertical = 8.dp)) { T(m, 14, C.Gold, lines = 2) }
+                            }
                         }
                         if (permDone) UpdateDialog()
                         if (Overlay.spectrum.value) SpectrumDialog { Overlay.spectrum.value = false }

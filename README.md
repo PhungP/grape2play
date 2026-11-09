@@ -200,3 +200,10 @@ Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi c�
 - Phát UPnP (Bravia…): TV tự phục vụ ảnh bìa (`/a/…jpg`) và gửi `albumArtURI` + DLNA protocolInfo; nếu TV từ chối metadata thì thử lại không metadata; chọn đúng IP Wi-Fi/LAN trên điện thoại (tránh card 4G).
 - Điều khiển TV từ điện thoại: TV mở máy chủ điều khiển (PIN 6 số ở Cài đặt ▸ Điều khiển từ điện thoại); điện thoại bấm biểu tượng TV ở Thư viện để dò TV, nhập PIN, điều khiển phát/tạm dừng/bài trước-sau/tua/xáo/lặp và tìm bài trong thư viện TV để phát.
 - Cửa sổ thông báo có bản cập nhật mới (tự hiện sau khi mở app): Cập nhật ngay / Để sau.
+
+## Bản 0.8.7
+- Bỏ tính năng điều khiển app trên TV bằng điện thoại.
+- Cài đặt: thêm lựa chọn Gapless (bộ đệm nạp trước 90 giây để nối bài liền mạch khi phát trên chính TV/máy).
+- Đầu ra âm thanh: rê con trỏ tới thiết bị nào thì khung bên phải hiện thông tin thiết bị đó; bấm vào thiết bị hiện hộp thoại Chọn / Huỷ; bỏ nút "Dùng đầu ra này".
+- Đo thời gian chuyển bài (từ lúc bấm đến lúc có tiếng); quá 3 giây hiện thông báo "Tốc độ đường truyền không ổn định".
+- Về ứng dụng: nhãn "Nhà phát triển" xếp dọc, chữ nhỏ và mảnh hơn trên điện thoại để hiện đủ chữ.

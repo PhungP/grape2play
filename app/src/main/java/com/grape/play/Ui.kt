@@ -40,11 +40,11 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) = T(text, 13, C.Mu
 @Composable
 fun OptionCard(
     icon: ImageVector, title: String, subtitle: String, selected: Boolean, tag: String = "",
-    modifier: Modifier = Modifier, requester: FocusRequester? = null, onClick: () -> Unit,
+    modifier: Modifier = Modifier, requester: FocusRequester? = null, onFocus: (() -> Unit)? = null, onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(12.dp)
     Box(modifier.fillMaxWidth().clip(shape).border(if (selected) 1.5.dp else 1.dp, if (selected) C.Gold else C.Line, shape)) {
-        Focusable(onClick, Modifier.fillMaxWidth(), shape, selected = selected, requester = requester) {
+        Focusable(onClick, Modifier.fillMaxWidth(), shape, selected = selected, requester = requester, onFocus = onFocus) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Icon(icon, null, tint = if (selected) C.Gold else C.Muted, modifier = Modifier.size(28.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

@@ -13,6 +13,10 @@ object AudioSettings {
     var hires: Boolean
         get() = sp.getBoolean("hires", false)
         set(v) { sp.edit().putBoolean("hires", v).apply() }
+    /** Gapless: nạp trước bài kế tiếp thật sớm (bộ đệm 90 giây) để qua bài liên tục, không có khoảng chờ. Mặc định bật. */
+    var gapless: Boolean
+        get() = if (::sp.isInitialized) sp.getBoolean("gapless", true) else true
+        set(v) { sp.edit().putBoolean("gapless", v).apply() }
     /** Tốc độ PCM khi chuyển DSD → PCM (Hz): 44100 / 88200 / 176400. */
     var dsdRate: Int
         get() = if (::sp.isInitialized) sp.getInt("dsdRate", 176400) else 176400

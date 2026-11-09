@@ -44,7 +44,7 @@ fun SoundScreen(onNav: (Screen) -> Unit, onSources: () -> Unit, onOut: () -> Uni
                 DsdCard()
                 BackgroundCard()
                 UpdateCard()
-                RemoteHostCard()
+                GaplessCard()
                 TvHomeCard()
                 CoverWebCard()
                 LanguageCard()
@@ -157,6 +157,20 @@ private fun TvHomeCard() {
             Opt("Tắt", !on) { scope.launch { TvHome.disable(ctx) } }
         }
         T("Nếu chưa thấy hàng này, vào Tuỳ chỉnh kênh trên màn hình chính của TV rồi bật “GRAPEPlay”.", 14, C.Muted, lines = 2)
+    }
+}
+
+@Composable
+fun GaplessCard() {
+    var on by remember { mutableStateOf(AudioSettings.gapless) }
+    Card {
+        T("PHÁT LIÊN TỤC", 13, C.Muted, spaced = true)
+        T("Gapless (qua bài không có khoảng chờ)", 22, lines = 2)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Opt("Bật", on) { if (!on) { on = true; AudioSettings.gapless = true; Playback.applySettings() } }
+            Opt("Tắt", !on) { if (on) { on = false; AudioSettings.gapless = false; Playback.applySettings() } }
+        }
+        T("Bật: app nạp trước bài kế tiếp ở bộ đệm lớn (90 giây) nên nối bài liền mạch, đặc biệt khi phát từ NAS / đám mây. Chỉ áp dụng khi phát trên chính TV/máy; phát tới thiết bị UPnP/Cast vẫn do thiết bị đó quyết định. Đổi cài đặt sẽ nạp lại bài đang nghe.", 14, C.Muted, lines = 5)
     }
 }
 
@@ -379,7 +393,7 @@ fun AboutDialog(onClose: () -> Unit) {
 /** Cột nhận diện thương hiệu: logo, tên, mô tả, phiên bản. horizontal = true: xếp ngang (điện thoại). */
 @Composable
 private fun AboutBrand(ver: String, modifier: Modifier, horizontal: Boolean) {
-    @Composable fun pill() { if (ver.isNotEmpty()) Box(Modifier.clip(RoundedCornerShape(50)).border(1.dp, C.Gold, RoundedCornerShape(50)).padding(horizontal = if (horizontal) 16.dp else 10.dp, vertical = if (horizontal) 6.dp else 4.dp)) { T("Phiên bản $ver", if (horizontal) 17 else 12, C.Gold, bold = true) } }
+    @Composable fun pill() { if (ver.isNotEmpty()) Box(Modifier.clip(RoundedCornerShape(50)).border(1.dp, C.Gold, RoundedCornerShape(50)).padding(horizontal = if (horizontal) 16.dp else 10.dp, vertical = if (horizontal) 6.dp else 4.dp)) { T("Phiên bản $ver", if (horizontal) 14 else 12, C.Gold, bold = !horizontal) } }
     if (horizontal) Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         GrapeLogo(Modifier.size(64.dp))
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -397,7 +411,7 @@ private fun AboutBrand(ver: String, modifier: Modifier, horizontal: Boolean) {
 
 @Composable
 private fun AboutBody(modifier: Modifier, big: Boolean) {
-    val k = if (big) 1f else 0.62f
+    val k = if (big) 0.82f else 0.62f
     fun f(n: Int) = (n * k).toInt()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(if (big) 12.dp else 8.dp)) {
         T("LIMITED EDITION", f(13).coerceAtLeast(10), C.PlumSoft, spaced = true, bold = true)
@@ -418,12 +432,10 @@ private fun AboutBody(modifier: Modifier, big: Boolean) {
 }
 
 @Composable
-private fun AboutRow(label: String, value: String, big: Boolean = true) {
-    if (big) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(if (LocalCompact.current) 130.dp else 190.dp)) { T(label, 14, C.Muted, spaced = true) }
-        T(value, 19, C.Text, bold = true, lines = 2)
-    } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        T(label, 10, C.Muted, spaced = true)
-        T(value, 12, C.Text, bold = true, lines = 2)
+private fun AboutRow(label: String, value: String, phone: Boolean = false) {
+    // Xếp dọc (nhãn trên, giá trị dưới) để không bị cắt chữ; trên điện thoại dùng nét mảnh, cỡ nhỏ hơn cho đồng bộ với các trang khác.
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        T(label, if (phone) 11 else 10, C.Muted, spaced = true)
+        T(value, if (phone) 15 else 12, C.Text, bold = !phone, lines = 2)
     }
 }
