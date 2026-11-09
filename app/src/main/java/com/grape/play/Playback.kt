@@ -290,6 +290,7 @@ object Playback {
         remoteStale = false
         val t = queue.value.getOrNull(i) ?: return
         if (exo.currentMediaItemIndex != i) exo.seekTo(i, 0L)
+        updateNext()
         index.value = i; position.value = startMs; duration.value = t.durationMs; error.value = null
         info.value = null; probeJob?.cancel()
         Recents.add(t.path); TvHome.schedule(appCtx, 30_000)
@@ -305,6 +306,23 @@ object Playback {
         val t = queue.value.getOrNull(i) ?: return
         if (!StreamServer.isDsdFile(t)) return
         if (playing.value) loadRemote(i, position.value) else remoteStale = true
+    }
+
+    // ---- Gapless cho thiết bị UPnP: nạp sẵn bài kế tiếp (SetNextAVTransportURI); thiết bị tự qua bài, app chỉ cập nhật hiển thị ----
+    @Volatile private var nextIdx = -1
+    private fun updateNext() { nextIdx = if (rc == null) -1 else (exo.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET } ?: -1) }
+    private fun advanceRemote(t: Track) {
+        if (rc == null) return
+        val q = queue.value
+        val i = if (q.getOrNull(nextIdx)?.path == t.path) nextIdx else q.indexOfFirst { it.path == t.path }
+        if (i < 0) return
+        if (exo.currentMediaItemIndex != i) exo.seekTo(i, 0L)
+        index.value = i; position.value = 0; duration.value = t.durationMs; error.value = null
+        info.value = null; probeJob?.cancel()
+        Recents.add(t.path); TvHome.schedule(appCtx, 30_000)
+        probeJob = CoroutineScope(Dispatchers.IO).launch { info.value = Probe.probe(t) }
+        playing.value = true
+        updateNext()
     }
 
     private fun remoteEnded() {
@@ -337,11 +355,16 @@ object Playback {
         c.onEnded = { main.launch { if (rc === c) remoteEnded() } }
         c.onError = { m -> main.launch { if (rc === c) { error.value = m; playing.value = false } } }
         rc = c; remote.value = r; outName.value = r.label
+        if (c is UpnpController) {
+            c.nextProvider = { queue.value.getOrNull(nextIdx) }
+            c.onAdvanced = { t -> main.launch { if (rc === c) advanceRemote(t) } }
+        }
         if (queue.value.isNotEmpty()) loadRemote(i, pos)
     }
-    fun toggleShuffle() { exo.shuffleModeEnabled = !exo.shuffleModeEnabled }
+    fun toggleShuffle() { exo.shuffleModeEnabled = !exo.shuffleModeEnabled; updateNext() }
     fun cycleRepeat() {
         exo.repeatMode = when (exo.repeatMode) { Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE; Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_OFF; else -> Player.REPEAT_MODE_ALL }
+        updateNext()
     }
 }
 

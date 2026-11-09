@@ -22,7 +22,34 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     @Volatile private var trackDur = 0L
     @Volatile private var seq = 0
 
+    /** Bài kế tiếp để nạp sẵn cho thiết bị (do Playback cung cấp) và gọi khi thiết bị đã tự qua bài đó. */
+    @Volatile var nextProvider: () -> Track? = { null }
+    @Volatile var onAdvanced: (Track) -> Unit = {}
+    @Volatile private var nextSupported = true
+    @Volatile private var armed: Track? = null
+    @Volatile private var armedKey = ""
+    @Volatile private var armTried = -1
+
     init { scope.launch { pollLoop() } }
+
+    private fun key(u: String) = u.substringAfter("/t/", u).substringBefore('?')
+    private fun unescape(s: String) = s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'")
+
+    /** Báo cho thiết bị bài kế tiếp: thiết bị hỗ trợ sẽ tự chuyển bài liền mạch, không cần app (hay TV) nạp bài lúc hết bài. */
+    private fun arm() {
+        val n = nextProvider() ?: return
+        try {
+            val mode = if (StreamServer.isDsdFile(n)) AudioSettings.dsdRemote else AudioSettings.DSD_RAW
+            val url = StreamServer.urlFor(n, mode)
+            call("SetNextAVTransportURI", "<NextURI>${xml(url)}</NextURI><NextURIMetaData>${xml(didl(n, url))}</NextURIMetaData>")
+            armed = n; armedKey = key(url)
+        } catch (e: Exception) {
+            armed = null
+            // 401 Invalid Action / 602 Not implemented: thiết bị không hỗ trợ → dùng cách cũ (app nạp bài khi hết bài)
+            val m = e.message.orEmpty()
+            if (listOf("(401)", "(602)", "(401 ", "Invalid Action").any { it in m }) nextSupported = false
+        }
+    }
 
     // ---- SOAP ----
     private fun call(action: String, args: String): String {
@@ -101,7 +128,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     // ---- RemoteController ----
     override fun load(t: Track, startMs: Long) {
         val my = ++seq
-        active = false; sawPlaying = false; userStopped = false
+        active = false; sawPlaying = false; userStopped = false; armed = null; armedKey = ""
         trackDur = t.durationMs
         scope.launch {
             try {
@@ -144,9 +171,21 @@ class UpnpController(private val r: Renderer) : RemoteController() {
                 val pi = call("GetPositionInfo", "")
                 val pos = parseHms(tag(pi, "RelTime"))
                 val dur = parseHms(tag(pi, "TrackDuration")).takeIf { it > 0 } ?: trackDur
+                // Thiết bị đã tự qua bài đã nạp sẵn?
+                val a = armed
+                if (a != null) {
+                    val cu = unescape(tag(pi, "TrackURI"))
+                    if (cu.isNotEmpty() && key(cu) == armedKey) {
+                        armed = null; armedKey = ""; armTried = -1
+                        trackDur = a.durationMs; sawPlaying = true; loadedAt = System.currentTimeMillis(); pendingSeek = 0
+                        onAdvanced(a)
+                        continue
+                    }
+                }
                 when (st) {
                     "PLAYING" -> {
                         sawPlaying = true
+                        if (nextSupported && armed == null && armTried != seq) { armTried = seq; arm() }
                         if (pendingSeek > 0) { val p = pendingSeek; pendingSeek = 0; runCatching { call("Seek", "<Unit>REL_TIME</Unit><Target>${hms(p)}</Target>") } }
                         onState(true, pos, dur)
                     }

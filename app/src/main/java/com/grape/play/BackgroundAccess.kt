@@ -36,6 +36,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.combine
 
 fun Context.findActivity(): Activity? {
     var c: Context = this
@@ -122,6 +123,24 @@ class PlaybackService : Service() {
 /** Bật dịch vụ nền khi đang phát; tắt sau 10 phút tạm dừng. Cập nhật thông báo khi đổi bài. */
 object Keepalive {
     private var stopJob: Job? = null
+    private var wake: PowerManager.WakeLock? = null
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+
+    /** Phát tới thiết bị từ xa (UPnP/Cast): TV/box là bộ điều khiển + máy chủ phát nhạc nên phải giữ CPU và Wi-Fi thức, nếu không khi tắt màn hình hệ thống sẽ làm chậm/ngắt giữa chừng. */
+    @Suppress("DEPRECATION")
+    private fun holdLocks(app: Context, on: Boolean) {
+        runCatching {
+            if (on) {
+                if (wake == null) wake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "grapeplay:remote").also { it.setReferenceCounted(false) }
+                if (wifiLock == null) wifiLock = (app.applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager).createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "grapeplay:wifi").also { it.setReferenceCounted(false) }
+                if (wake?.isHeld == false) wake?.acquire()
+                if (wifiLock?.isHeld == false) wifiLock?.acquire()
+            } else {
+                if (wake?.isHeld == true) wake?.release()
+                if (wifiLock?.isHeld == true) wifiLock?.release()
+            }
+        }
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun init(ctx: Context) {
@@ -138,6 +157,9 @@ object Keepalive {
             }
         }
         scope.launch { Playback.index.collect { if (Playback.playing.value) start(app) } }
+        scope.launch {
+            Playback.playing.combine(Playback.remote) { p, r -> p && r != null }.collect { holdLocks(app, it) }
+        }
     }
 
     /** Bật dịch vụ nền ngay (dùng khi người dùng chọn "giữ app chạy ngầm"). */

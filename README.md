@@ -207,3 +207,8 @@ Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi c�
 - Đầu ra âm thanh: rê con trỏ tới thiết bị nào thì khung bên phải hiện thông tin thiết bị đó; bấm vào thiết bị hiện hộp thoại Chọn / Huỷ; bỏ nút "Dùng đầu ra này".
 - Đo thời gian chuyển bài (từ lúc bấm đến lúc có tiếng); quá 3 giây hiện thông báo "Tốc độ đường truyền không ổn định".
 - Về ứng dụng: nhãn "Nhà phát triển" xếp dọc, chữ nhỏ và mảnh hơn trên điện thoại để hiện đủ chữ.
+
+## Bản 0.8.8
+- Phát tới thiết bị từ xa (UPnP/Cast): app giữ khoá thức CPU + Wi-Fi hiệu suất cao khi đang phát, tránh bị hệ thống làm chậm/ngắt khi tắt màn hình (không cứu được TV đã vào standby thật).
+- UPnP gapless: nạp sẵn bài kế tiếp bằng SetNextAVTransportURI; thiết bị hỗ trợ sẽ tự qua bài, app nhận biết (TrackURI đổi) và cập nhật hiển thị. Thiết bị không hỗ trợ tự quay về cách cũ (app nạp bài khi hết bài).
+- Cửa sổ "Đã cập nhật lên bản X" hiện một lần sau khi cài bản mới, kèm ghi chú phát hành nếu có.

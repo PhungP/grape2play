@@ -271,3 +271,40 @@ fun UpdateDialog() {
         }
     }
 }
+
+/**
+ * Cửa sổ "Đã cập nhật lên bản X": hiện một lần đầu tiên mở app sau khi cài bản mới (lần đầu cài thì không hiện).
+ * Kèm ghi chú phát hành nếu lấy được từ GitHub.
+ */
+@Composable
+fun UpdatedDialog() {
+    val ctx = LocalContext.current
+    val cur = remember { Updater.currentVersion(ctx) }
+    val sp = remember { ctx.getSharedPreferences("updater", Context.MODE_PRIVATE) }
+    var show by remember { mutableStateOf(false) }
+    val rel by Updater.release
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        val seen = sp.getString("seen", null)
+        if (seen == null) sp.edit().putString("seen", cur).apply() else if (seen != cur) show = true
+    }
+    if (!show) return
+    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    val notes = rel?.takeIf { Updater.currentVersion(ctx).trim() == it.version.trim() }?.notes.orEmpty()
+    val big = LocalCompact.current
+    fun f(n: Int) = if (big) n else (n * 0.62f).toInt().coerceAtLeast(10)
+    fun close() { sp.edit().putString("seen", cur).apply(); show = false }
+    Dialog(onDismissRequest = { close() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            (if (big) Modifier.dlgW(520) else Modifier.dlgFrac(0.4f)).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(14.dp)).dlgPad(26, 18),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            T("CẬP NHẬT ỨNG DỤNG", f(13), C.Muted, spaced = true)
+            T("✓ Đã cập nhật lên bản $cur", f(28), serif = true, bold = true, lines = 2)
+            if (notes.isNotEmpty()) T(notes.lines().filter { it.isNotBlank() }.take(6).joinToString("\n"), f(16), C.Text, lines = 6)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Focusable({ close() }, requester = first) { T("Đóng", f(18), C.Gold, Modifier.padding(if (big) 22.dp else 14.dp, if (big) 10.dp else 6.dp), bold = true) }
+            }
+        }
+    }
+}
