@@ -29,7 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -107,14 +110,33 @@ object Updater {
         }
     }
 
-    /** Tự kiểm tra một lần mỗi lần mở app (im lặng nếu lỗi mạng). */
-    suspend fun autoCheck(ctx: Context) {
+    private val bg = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /**
+     * Tự kiểm tra một lần mỗi lần mở app, chạy ở phạm vi toàn app (không bị huỷ khi đổi màn hình).
+     * TV thường vừa mở app là mạng chưa sẵn sàng (Wi-Fi còn đang nối lại) nên lần đầu hay lỗi: thử lại sau 5 s, 20 s, 60 s thay vì bỏ qua cả phiên.
+     */
+    fun autoCheck(ctx: Context) {
         if (autoDone || state.value != St.IDLE) return
         autoDone = true
-        check(ctx)
-        if (state.value == St.ERROR) { state.value = St.IDLE; error.value = "" }
-        if (state.value == St.AVAILABLE) prompt.value = true
+        val app = ctx.applicationContext
+        bg.launch {
+            val waits = longArrayOf(5_000, 20_000, 60_000)
+            for (n in 0..waits.size) {
+                check(app)
+                if (state.value != St.ERROR) break
+                AppLog.w("Update", "Kiểm tra cập nhật lỗi (lần ${n + 1}): ${error.value}")
+                state.value = St.IDLE; error.value = ""
+                if (n < waits.size) delay(waits[n])
+            }
+            if (state.value == St.AVAILABLE) { AppLog.i("Update", "Có bản mới ${release.value?.version}"); prompt.value = true }
+        }
     }
+
+    /** Ghi chú phát hành (Markdown) → các dòng tính năng gọn: bỏ #, **, gạch đầu dòng; tối đa [max] dòng. */
+    fun featureLines(notes: String, max: Int = 8): List<String> =
+        notes.lines().map { it.trim().trimStart('#', '-', '*', '+', '•', ' ').replace("**", "").replace("`", "").trim() }
+            .filter { it.isNotEmpty() }.take(max)
 
     private fun download(ctx: Context, rel: Release): File {
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
@@ -150,6 +172,7 @@ object Updater {
             state.value = St.READY
             install(ctx)
         } catch (e: Exception) {
+            AppLog.e("Update", "Tải/cài bản cập nhật lỗi", e)
             error.value = e.message ?: e.javaClass.simpleName; state.value = St.ERROR; null
         }
     }
@@ -239,7 +262,7 @@ fun UpdateDialog() {
     val r = rel
     if (!prompt || r == null || st == Updater.St.UPTODATE || st == Updater.St.IDLE || st == Updater.St.CHECKING) return
     val compact = LocalCompact.current
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    LaunchedEffect(Unit) { delay(150); runCatching { first.requestFocus() } }   // chờ cửa sổ dựng xong rồi mới nhận tiêu điểm D-pad
     val big = compact
     fun f(n: Int) = if (big) n else (n * 0.62f).toInt().coerceAtLeast(10)
     Dialog(onDismissRequest = { if (st != Updater.St.DOWNLOADING) Updater.prompt.value = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -248,9 +271,12 @@ fun UpdateDialog() {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             T("CẬP NHẬT ỨNG DỤNG", f(13), C.Muted, spaced = true)
-            T("Có bản mới ${r.version}", f(30), serif = true, bold = true)
+            T("Có phiên bản mới ${r.version}", f(30), serif = true, bold = true, lines = 2)
             T("Bạn đang dùng bản $cur" + (if (r.size > 0) " · dung lượng ${mb(r.size)}" else ""), f(17), C.Muted, lines = 2)
-            if (r.notes.isNotEmpty()) T(r.notes.lines().filter { it.isNotBlank() }.take(5).joinToString("\n"), f(16), C.Text, lines = 5)
+            val feats = remember(r.notes) { Updater.featureLines(r.notes) }
+            T("TÍNH NĂNG / THAY ĐỔI TRONG BẢN NÀY", f(12), C.Muted, spaced = true)
+            if (feats.isEmpty()) T("Chưa có mô tả thay đổi cho bản này.", f(16), C.Muted, lines = 2)
+            else for (l in feats) T("•  $l", f(16), C.Text, lines = 2)
             when (st) {
                 Updater.St.DOWNLOADING -> T("Đang tải… $pct%", f(18), C.Gold, bold = true)
                 Updater.St.READY -> T("✓ Đã tải xong, sẵn sàng cài đặt.", f(17), Grade.GREEN.color)
@@ -267,43 +293,6 @@ fun UpdateDialog() {
                 }, requester = first) {
                     T(if (st == Updater.St.READY) "Cài đặt ngay" else if (st == Updater.St.ERROR) "Thử lại" else "Cập nhật ngay", f(18), C.Gold, Modifier.padding(if (big) 22.dp else 14.dp, if (big) 10.dp else 6.dp), bold = true)
                 }
-            }
-        }
-    }
-}
-
-/**
- * Cửa sổ "Đã cập nhật lên bản X": hiện một lần đầu tiên mở app sau khi cài bản mới (lần đầu cài thì không hiện).
- * Kèm ghi chú phát hành nếu lấy được từ GitHub.
- */
-@Composable
-fun UpdatedDialog() {
-    val ctx = LocalContext.current
-    val cur = remember { Updater.currentVersion(ctx) }
-    val sp = remember { ctx.getSharedPreferences("updater", Context.MODE_PRIVATE) }
-    var show by remember { mutableStateOf(false) }
-    val rel by Updater.release
-    val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        val seen = sp.getString("seen", null)
-        if (seen == null) sp.edit().putString("seen", cur).apply() else if (seen != cur) show = true
-    }
-    if (!show) return
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    val notes = rel?.takeIf { Updater.currentVersion(ctx).trim() == it.version.trim() }?.notes.orEmpty()
-    val big = LocalCompact.current
-    fun f(n: Int) = if (big) n else (n * 0.62f).toInt().coerceAtLeast(10)
-    fun close() { sp.edit().putString("seen", cur).apply(); show = false }
-    Dialog(onDismissRequest = { close() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(
-            (if (big) Modifier.dlgW(520) else Modifier.dlgFrac(0.4f)).clip(RoundedCornerShape(14.dp)).background(C.Panel).border(1.dp, C.Line, RoundedCornerShape(14.dp)).dlgPad(26, 18),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            T("CẬP NHẬT ỨNG DỤNG", f(13), C.Muted, spaced = true)
-            T("✓ Đã cập nhật lên bản $cur", f(28), serif = true, bold = true, lines = 2)
-            if (notes.isNotEmpty()) T(notes.lines().filter { it.isNotBlank() }.take(6).joinToString("\n"), f(16), C.Text, lines = 6)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Focusable({ close() }, requester = first) { T("Đóng", f(18), C.Gold, Modifier.padding(if (big) 22.dp else 14.dp, if (big) 10.dp else 6.dp), bold = true) }
             }
         }
     }

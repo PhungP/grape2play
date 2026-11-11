@@ -215,3 +215,11 @@ Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi c�
 
 ## Bản 0.8.9
 - UPnP gapless: thêm cách nhận biết dự phòng khi loa tự qua bài nhưng viết lại URL (bài trước gần hết, vị trí về gần 0 và đang phát) để app không nạp lặp lại bài.
+
+## Bản 0.9.0
+- **Màn Đang phát mới** (giao diện mặc định): ảnh bìa lớn, đáy thẳng hàng hộp "Đường tín hiệu"; dải sóng âm thấp (46 dp); phát trên TV có 2 đồng hồ VU kim (-40…+3 dB); phát tới UPnP/Cast có hộp "Thiết bị nhận" và "Kết nối & phát liên tục" (độ trễ, trạng thái, bài kế đã nạp sẵn, lần chuyển bài gần nhất, số lần mất kết nối).
+- **Nhật ký lỗi** (Cài đặt → Nhật ký lỗi): ghi lỗi phát nhạc, loa/NAS, cập nhật; bắt cả lỗi làm app dừng. Điện thoại: nút Gửi (email/chia sẻ). TV: hiện địa chỉ `http://IP:cổng/log` để mở bằng trình duyệt máy khác. Đã lọc mật khẩu/token trong URL.
+- **Thông báo bản mới trên TV** kèm danh sách tính năng (lấy từ ghi chú Release trên GitHub); tự thử lại 5 s/20 s/60 s nếu lúc mở app mạng chưa sẵn sàng. Bỏ thông báo "đã cập nhật".
+- **Sửa kẹt khi phát DSD ra đầu ra không tương thích** (cổng quang, TV): tự hạ tốc độ DSD→PCM cho riêng đầu ra đó (176,4 → 88,2 → 44,1 kHz) rồi phát lại; sau lỗi, chọn bài/thư mục khác, bấm Phát hoặc đổi đầu ra đều nạp lại bộ phát ngay và xoá thông báo lỗi cũ.
+- **Nhiều máy cùng một loa UPnP**: hỏi trạng thái thưa hơn và lệch pha, giãn dần khi loa chậm, timeout ngắn; phát hiện máy khác giành quyền (URL lạ 3 lần liên tiếp) thì ngừng gửi lệnh, không tự chuyển bài, báo rõ và chờ bấm Phát để giành lại.
+- Dọn mã: gom 3 đoạn trùng lặp trong Playback (`startProbe`), bỏ hàm `Vu` không dùng, bỏ `UpdatedDialog`.

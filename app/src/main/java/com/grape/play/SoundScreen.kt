@@ -45,6 +45,7 @@ fun SoundScreen(onNav: (Screen) -> Unit, onSources: () -> Unit, onOut: () -> Uni
                 BackgroundCard()
                 UpdateCard()
                 GaplessCard()
+                LogCard()
                 TvHomeCard()
                 CoverWebCard()
                 LanguageCard()
@@ -183,11 +184,11 @@ fun DsdCard() {
         T("Chuyển DSD sang PCM", 22)
         T(if (LocalCompact.current) "Android không xuất DSD gốc: app giải mã DSF/DFF thành PCM 24-bit chất lượng cao rồi đưa ra loa, tai nghe hoặc DAC." else "TV Android 8.0 không xuất DSD gốc: app giải mã DSF/DFF thành PCM 24-bit chất lượng cao rồi đưa ra cổng quang/analogue.", 15, C.Muted, lines = 3)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Opt("44.1 kHz", rate == 44100) { rate = 44100; AudioSettings.dsdRate = 44100 }
-            Opt("88.2 kHz", rate == 88200) { rate = 88200; AudioSettings.dsdRate = 88200 }
-            Opt("176.4 kHz", rate == 176400) { rate = 176400; AudioSettings.dsdRate = 176400 }
+            Opt("44.1 kHz", rate == 44100) { rate = 44100; AudioSettings.dsdRate = 44100; AudioSettings.resetDsdLimits() }
+            Opt("88.2 kHz", rate == 88200) { rate = 88200; AudioSettings.dsdRate = 88200; AudioSettings.resetDsdLimits() }
+            Opt("176.4 kHz", rate == 176400) { rate = 176400; AudioSettings.dsdRate = 176400; AudioSettings.resetDsdLimits() }
         }
-        T("Cổng quang S/PDIF thường chỉ nhận tới 48 kHz: nếu mất tiếng hãy chọn 44.1 kHz. Áp dụng từ bài kế tiếp.", 14, C.Muted, lines = 2)
+        T("Cổng quang S/PDIF thường chỉ nhận tới 48 kHz. Nếu đầu ra không nhận tốc độ đã chọn, app tự hạ xuống mức thấp hơn cho riêng đầu ra đó và phát lại. Áp dụng từ bài kế tiếp.", 14, C.Muted, lines = 2)
         Spacer(Modifier.height(10.dp))
         T("KHI PHÁT TỚI THIẾT BỊ UPnP (WiiM, Network Player…)", 13, C.Muted, spaced = true)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

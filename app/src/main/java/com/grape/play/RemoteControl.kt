@@ -4,8 +4,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+
+/**
+ * Tình trạng liên lạc với thiết bị nhận (hiện ở hộp "Kết nối & phát liên tục" của màn Đang phát).
+ * [series]: độ trễ phản hồi (ms) của ~60 lần hỏi gần nhất, 0 = lần đó mất kết nối.
+ */
+data class RemoteHealth(
+    val latencyMs: Int = 0, val series: List<Int> = emptyList(), val drops: Int = 0,
+    val state: String = "", val nextArmed: Boolean = false, val nextSupported: Boolean = true,
+    val lastSwitchAt: Long = 0L, val viaTv: Boolean = true,
+    /** true = phát hiện máy khác đang điều khiển cùng thiết bị nhận (đã ngừng gửi lệnh để không tranh nhau). */
+    val otherController: Boolean = false,
+)
+object RemoteStats { val health = MutableStateFlow(RemoteHealth()) }
 
 /**
  * Điều khiển một thiết bị phát từ xa. Mọi lệnh chạy bất đồng bộ trên một luồng riêng (tuần tự), nên gọi từ giao diện không bị chặn.

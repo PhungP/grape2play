@@ -56,6 +56,18 @@ object Lang {
     }
 
     private val MAP: Map<String, String> = mapOf(
+        // v0.9: nhật ký lỗi, thông báo cập nhật, màn Đang phát mới
+        "NHẬT KÝ LỖI" to "ERROR LOG", "Xem / gửi nhật ký" to "View / send log", "Nhật ký sử dụng ứng dụng" to "App usage log",
+        "Ghi lại các lỗi phát nhạc, kết nối loa/NAS, cập nhật trong lúc dùng. Khi gặp sự cố, gửi nhật ký này cho nhà phát triển để kiểm tra." to "Records playback errors, speaker/NAS connection problems and update issues while you use the app. If something goes wrong, send this log to the developer.",
+        "Chưa có dòng nhật ký nào." to "No log entries yet.", "Gửi" to "Send", "Đã xoá nhật ký." to "Log cleared.",
+        "Để gửi cho nhà phát triển: trên điện thoại/máy tính cùng mạng, mở trình duyệt và nhập địa chỉ bên dưới, rồi lưu hoặc sao chép nội dung gửi đi:" to "To send it to the developer: on a phone/computer on the same network open a browser, type the address below, then save or copy the content and send it:",
+        "TV chưa kết nối mạng nên chưa thể mở nhật ký qua trình duyệt." to "The TV is not on the network, so the log cannot be opened in a browser.",
+        "TÍNH NĂNG / THAY ĐỔI TRONG BẢN NÀY" to "WHAT'S NEW IN THIS VERSION", "Chưa có mô tả thay đổi cho bản này." to "No release notes for this version.",
+        "Cập nhật ngay" to "Update now",
+        "Tần số" to "Frequency", "THIẾT BỊ NHẬN" to "RECEIVER", "KẾT NỐI & PHÁT LIÊN TỤC" to "LINK & CONTINUOUS PLAY",
+        "Thiết bị tự giải mã luồng nhận được" to "The device decodes the stream itself", "Thiết bị tự kéo nhạc về và giải mã" to "The device pulls the music and decodes it itself",
+        "⚠ EQ đang chỉnh — có thể méo nếu tăng cao" to "⚠ EQ is active — may distort if boosted high",
+        "⚠ Máy khác đang điều khiển thiết bị này" to "⚠ Another device is controlling this receiver",
         // chung
         "Đóng" to "Close", "Huỷ" to "Cancel", "Bấm Back để đóng" to "Press Back to close", "Xoá" to "Delete", "Quét lại" to "Rescan",
         "Tất cả" to "All", "Bộ nhớ TV & USB" to "TV storage & USB", "Bộ nhớ TV" to "TV storage", "USB" to "USB",
@@ -225,6 +237,22 @@ object Lang {
     )
 
     private val RULES: List<Pair<Regex, String>> = listOf(
+        Regex("Có phiên bản mới (.+)") to "New version $1 available",
+        Regex("Bạn đang dùng bản (.+?) · dung lượng (.+)") to "You are using version $1 · size $2",
+        Regex("Bạn đang dùng bản (.+)") to "You are using version $1",
+        Regex("•  (.+)") to "•  $1",
+        Regex("Email nhà phát triển: (.+)") to "Developer email: $1",
+        Regex("Phản hồi: (.+)") to "Response: $1",
+        Regex("Trạng thái: (.+)") to "Status: $1",
+        Regex("Bài kế: (.+)") to "Next: $1",
+        Regex("Chuyển bài: (\\d+) s trước") to "Last switch: $1 s ago",
+        Regex("Chuyển bài: (.+)") to "Last switch: $1",
+        Regex("Nguồn: trực tiếp") to "Source: direct",
+        Regex("Nguồn: kéo qua TV") to "Source: pulled via TV",
+        Regex("Mất kết nối: (\\d+) lần") to "Dropouts: $1",
+        Regex("Đầu ra (.+) không nhận PCM (.+) — đã tự hạ xuống (.+) và phát lại\\.") to "Output $1 does not accept PCM $2 — automatically lowered to $3 and restarted.",
+        Regex("Đầu ra (.+) không nhận được tín hiệu của bài này\\..*") to "Output $1 cannot take this track's signal. Choose another track or output (the “Output” button at the top) — playback restarts right away.",
+        Regex("(.+) đang được một thiết bị khác điều khiển\\..*") to "$1 is being controlled by another device. To avoid fighting over it, this app stopped sending commands. Press Play to take control again from here.",
         Regex("Đang dùng bản: (.+)") to "Current version: $1",
         Regex("Có bản mới: (.+)") to "New version available: $1",
         Regex("Bản mới nhất trên GitHub: (.+)") to "Latest version on GitHub: $1",

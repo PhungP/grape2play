@@ -34,7 +34,7 @@ object Decoders {
 
     fun open(kind: String, src: ByteSource): PcmStream = when (kind) {
         "flac" -> FlacPcm(src)
-        "dsf", "dff" -> DsdPcm(src, AudioSettings.dsdRate)
+        "dsf", "dff" -> DsdPcm(src, AudioSettings.effectiveDsdRate())
         else -> throw IOException("Không hỗ trợ định dạng $kind")
     }
 }

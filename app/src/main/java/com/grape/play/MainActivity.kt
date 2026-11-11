@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
                                     .border(1.dp, C.Gold, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(horizontal = 16.dp, vertical = 8.dp)) { T(m, 14, C.Gold, lines = 2) }
                             }
                         }
-                        if (permDone) { UpdateDialog(); UpdatedDialog() }
+                        if (permDone) UpdateDialog()
                         if (Overlay.spectrum.value) SpectrumDialog { Overlay.spectrum.value = false }
                         if (Overlay.exit.value) ExitDialog(onStay = { Overlay.exit.value = false }, onExit = { Overlay.exit.value = false; exitApp() })
                         if (permDone && askBg) BackgroundDialog(onAllow = { askBg = false; askBackground() }, onLater = { askBg = false; BackgroundAccess.asked = true })

@@ -205,21 +205,6 @@ fun Waveform(seed: Int, progress: Float, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Vu(label: String, level: Float, modifier: Modifier = Modifier) {
-    val db = if (level <= 0.0005f) -60f else 20f * log10(level)
-    val frac = ((db + 40f) / 40f).coerceIn(0f, 1f)
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        T(label, 14, C.Muted, Modifier.width(26.dp))
-        Canvas(Modifier.weight(1f).height(10.dp)) {
-            val cr = CornerRadius(5.dp.toPx())
-            drawRoundRect(C.Line, cornerRadius = cr)
-            drawRoundRect(Brush.horizontalGradient(listOf(Color(0xFF8A7340), C.Gold)), size = Size(size.width * frac, size.height), cornerRadius = cr)
-        }
-        T(if (db <= -60f) "-∞ dB" else "%.1f dB".format(db), 14, C.Muted, Modifier.width(88.dp).padding(start = 12.dp))
-    }
-}
-
-@Composable
 fun TrackRow(i: Int, t: Track, current: Boolean, compact: Boolean = false, onClick: () -> Unit) =
     Focusable(onClick, Modifier.fillMaxWidth(), selected = current, onLong = { Favorites.toggle(t) }) {
         Row(Modifier.padding(if (compact) 5.dp else 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)) {

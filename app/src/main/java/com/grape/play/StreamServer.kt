@@ -103,6 +103,13 @@ object StreamServer {
         return o.toByteArray()
     }
 
+    /** Địa chỉ để máy khác trong mạng đọc nhật ký lỗi (xem AppLog.lanShare). null nếu chưa có mạng. */
+    fun logUrl(): String? {
+        ensure()
+        val ip = CloudAuth.lanIp() ?: return null
+        return "http://$ip:$port/log"
+    }
+
     private fun readLine(i: InputStream): String? {
         val sb = StringBuilder()
         while (true) {
@@ -133,6 +140,11 @@ object StreamServer {
                     out.write("HTTP/1.1 $code $text\r\n${extra}Connection: close\r\nContent-Length: ${body?.size ?: 0}\r\n\r\n".toByteArray())
                     if (body != null && method != "HEAD") out.write(body)
                     out.flush()
+                }
+                if (target.substringBefore('?') == "/log") {
+                    if (!AppLog.lanShare || method != "GET") { reply(404, "Not Found"); return }
+                    reply(200, "OK", "Content-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\n", AppLog.text().toByteArray())
+                    return
                 }
                 if (target.startsWith("/a/")) {
                     val at = artTracks[target.substringAfter("/a/").substringBefore('?').substringBeforeLast('.')]

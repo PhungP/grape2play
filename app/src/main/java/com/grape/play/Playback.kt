@@ -7,7 +7,6 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import java.io.IOException
 import android.net.Uri
 import androidx.media3.common.AudioAttributes
@@ -99,9 +98,27 @@ object Playback {
         return tl.getPeriod(pi, Timeline.Period()).windowIndex
     }
 
+    private fun isSinkError(e: PlaybackException) =
+        e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED || e.errorCode == PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED
+
+    /** Sau lỗi bộ phát về trạng thái nghỉ (IDLE) và sẽ không tự chạy lại: mọi thao tác của người dùng phải nạp lại trước khi phát. */
+    private fun ensureReady() {
+        if (::exo.isInitialized && exo.mediaItemCount > 0 && exo.playbackState == Player.STATE_IDLE) exo.prepare()
+    }
+
+    /** Dựng lại toàn bộ danh sách (để các bài nạp trước cũng lấy cấu hình mới) rồi phát tiếp bài [i] từ vị trí [pos]. */
+    private fun reloadLocal(i: Int, pos: Long) {
+        val q = queue.value
+        if (q.isEmpty()) return
+        exo.setMediaItems(q.map { MediaItem.fromUri(Remote.toUri(it)) }, i.coerceIn(0, q.lastIndex), pos)
+        exo.prepare(); exo.play()
+    }
+
+    /** Xoá trạng thái lỗi cũ: gọi khi người dùng chủ động chọn bài / đầu ra / thư mục khác để lần thử mới bắt đầu sạch. */
+    private fun clearFailure() { error.value = null; errCount = 0; retried.clear() }
+
     /** Lỗi phát: hiện chi tiết; với file trên ổ USB/ổ cứng thì thử sao chép sang bộ nhớ đệm rồi phát lại; tránh vòng lặp lỗi vô tận. */
     private fun handleError(e: PlaybackException) {
-        Log.e("GRAPEPlay", "Player error", e)
         val cur = exo.currentMediaItemIndex
         val fi = failingIndex(e) ?: cur
         val preload = fi != cur
@@ -109,7 +126,26 @@ object Playback {
         val pos = exo.currentPosition
         val where = t?.let { "${it.path.takeLast(70)} @ ${if (preload) "bài kế tiếp" else fmt(pos)}" } ?: ""
         val head = "${e.errorCodeName}\n${detail(e)}\n$where"
+        AppLog.e("Player", "$head | đầu ra=${outName.value}", e)
         if (preload) { exo.prepare(); exo.play() } // tiếp tục bài đang nghe, bài lỗi xử lý ngầm
+        // Đầu ra không nhận tín hiệu (cổng quang/TV không nhận PCM tốc độ cao…): với DSD tự hạ tốc độ chuyển PCM cho riêng đầu ra này rồi phát lại ngay
+        if (!preload && t != null && StreamServer.isDsdFile(t) && isSinkError(e)) {
+            val from = AudioSettings.effectiveDsdRate()
+            val to = AudioSettings.lowerDsdRate()
+            if (to != null) {
+                AppLog.w("Player", "Đầu ra ${outName.value} không nhận DSD→PCM ${khz(from)}: hạ xuống ${khz(to)} và phát lại")
+                reloadLocal(cur, pos)
+                error.value = "Đầu ra ${outName.value} không nhận PCM ${khz(from)} — đã tự hạ xuống ${khz(to)} và phát lại."
+                return
+            }
+        }
+        if (isSinkError(e)) {
+            error.value = "Đầu ra ${outName.value} không nhận được tín hiệu của bài này. Hãy chọn bài/đầu ra khác (bấm “Đầu ra” ở góc trên) — app sẽ phát lại ngay."
+            errCount++
+            if (!preload && errCount >= minOf(queue.value.size, 3)) { exo.stop(); return }
+            if (!preload) skipNext()
+            return
+        }
         val usb = t != null && t.path.startsWith("/storage/") && !t.path.startsWith("/storage/emulated")
         if (t != null && usb && retried.add(t.path)) {
             error.value = "Lỗi khi đọc từ ổ — đang sao chép file sang bộ nhớ đệm để thử lại…\n$head"
@@ -148,6 +184,7 @@ object Playback {
     fun init(ctx: Context) {
         if (::exo.isInitialized) return
         appCtx = ctx.applicationContext
+        AppLog.init(appCtx)
         AudioSettings.init(appCtx)
         AudioSettings.applyStartup()   // đầu ra mặc định khi mở app (nếu người dùng đã chọn)
         DspParams.init(appCtx)
@@ -168,7 +205,7 @@ object Playback {
             }, Handler(Looper.getMainLooper()))
         }
         Keepalive.init(appCtx)
-        CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+        main.launch {
             while (true) { if (exo.isPlaying) { position.value = exo.currentPosition; if (position.value > 8000) errCount = 0; if (position.value > 4000 && error.value != null) error.value = null }; delay(250) }
         }
     }
@@ -204,12 +241,23 @@ object Playback {
         if (!::exo.isInitialized || rc != null) return
         runCatching { exo.setPreferredAudioDevice(AudioSettings.current(appCtx)) }
         outName.value = AudioSettings.currentName(appCtx)
+        retryAfterFailure()
+    }
+
+    /** Đầu ra vừa đổi sau một lỗi phát: thử lại bài đang chọn ngay trên đầu ra mới, không bắt người dùng bấm thêm. */
+    private fun retryAfterFailure() {
+        if (rc != null || error.value == null || queue.value.isEmpty() || exo.playbackState != Player.STATE_IDLE) return
+        clearFailure()
+        AppLog.i("Player", "Đổi đầu ra sang ${outName.value} sau lỗi: thử phát lại")
+        exo.prepare(); exo.play()
     }
 
     /** Áp dụng lại cài đặt âm thanh: dựng lại bộ phát, giữ nguyên danh sách, bài và vị trí đang nghe. */
     fun applySettings() {
         val q = queue.value; val i = exo.currentMediaItemIndex; val pos = if (rc != null) position.value else exo.currentPosition
-        val was = if (rc != null) playing.value else exo.isPlaying; val sh = exo.shuffleModeEnabled; val rep = exo.repeatMode
+        val failed = rc == null && error.value != null && exo.playbackState == Player.STATE_IDLE
+        val was = if (rc != null) playing.value else (exo.isPlaying || failed); val sh = exo.shuffleModeEnabled; val rep = exo.repeatMode
+        if (failed) clearFailure()
         exo.release()
         exo = build()
         exo.repeatMode = rep; exo.shuffleModeEnabled = sh
@@ -223,25 +271,32 @@ object Playback {
         remote.value?.let { outName.value = it.label }
     }
 
+    /** Bài [t] bắt đầu được nghe: ghi vào "phát gần đây", làm mới hàng trên trang chủ TV và đọc thông số kỹ thuật của file ở luồng nền. */
+    private fun startProbe(t: Track) {
+        info.value = null
+        Recents.add(t.path); TvHome.schedule(appCtx, 30_000)
+        probeJob?.cancel()
+        probeJob = ioScope.launch { info.value = Probe.probe(t) }
+    }
+
     private fun sync() {
         val i = exo.currentMediaItemIndex
         index.value = i; position.value = 0
         val t = queue.value.getOrNull(i) ?: return
-        duration.value = t.durationMs; info.value = null
-        Recents.add(t.path); TvHome.schedule(appCtx, 30_000)
-        probeJob?.cancel()
-        probeJob = CoroutineScope(Dispatchers.IO).launch { info.value = Probe.probe(t) }
+        duration.value = t.durationMs
+        startProbe(t)
     }
 
     fun play(tracks: List<Track>, start: Int, shuffleOn: Boolean? = null) {
         if (tracks.isEmpty()) return
         shuffleOn?.let { exo.shuffleModeEnabled = it }
-        queue.value = tracks; retried.clear(); errCount = 0; markSwitch()
+        queue.value = tracks; clearFailure(); markSwitch()
         exo.setMediaItems(tracks.map { MediaItem.fromUri(Remote.toUri(it)) }, start, 0L)
+        AppLog.i("Player", "Phát danh sách ${tracks.size} bài từ #$start · ${tracks.getOrNull(start)?.ext} · đầu ra ${outName.value}")
         if (rc != null) { sync(); loadRemote(start) } else { exo.prepare(); exo.play(); sync() }
     }
     fun playShuffled(tracks: List<Track>) = play(tracks, tracks.indices.random(), true)
-    fun jump(i: Int) { markSwitch(); if (rc != null) loadRemote(i) else { exo.seekTo(i, 0L); exo.play() } }
+    fun jump(i: Int) { markSwitch(); clearFailure(); if (rc != null) loadRemote(i) else { ensureReady(); exo.seekTo(i, 0L); exo.play() } }
     fun toggle() {
         val c = rc
         if (c != null) {
@@ -250,18 +305,19 @@ object Playback {
             else if (error.value != null || remoteStale) loadRemote(index.value, position.value)
             else { playing.value = true; c.play() }
         }
-        else if (exo.isPlaying) exo.pause() else exo.play()
+        else if (exo.isPlaying) exo.pause() else { if (exo.playbackState == Player.STATE_IDLE) clearFailure(); ensureReady(); exo.play() }
     }
     fun next() {
         markSwitch()
-        if (rc != null) { val n = exo.nextMediaItemIndex; if (n != C.INDEX_UNSET) loadRemote(n) } else exo.seekToNextMediaItem()
+        clearFailure()
+        if (rc != null) { val n = exo.nextMediaItemIndex; if (n != C.INDEX_UNSET) loadRemote(n) } else { ensureReady(); exo.seekToNextMediaItem(); exo.play() }
     }
     fun prev() {
-        if (position.value <= 3000) markSwitch()
+        if (position.value <= 3000) { markSwitch(); clearFailure() }
         if (rc != null) {
             if (position.value > 3000) { rc?.seek(0); position.value = 0 }
             else { val p = exo.previousMediaItemIndex; if (p != C.INDEX_UNSET) loadRemote(p) else { rc?.seek(0); position.value = 0 } }
-        } else if (exo.currentPosition > 3000) exo.seekTo(0) else exo.seekToPreviousMediaItem()
+        } else { ensureReady(); if (exo.currentPosition > 3000) exo.seekTo(0) else { exo.seekToPreviousMediaItem(); exo.play() } }
     }
     /** Tua tới vị trí tuyệt đối (ms) — dùng cho thanh tua cảm ứng trên điện thoại/máy tính bảng. */
     fun seekTo(ms: Long) {
@@ -292,9 +348,7 @@ object Playback {
         if (exo.currentMediaItemIndex != i) exo.seekTo(i, 0L)
         updateNext()
         index.value = i; position.value = startMs; duration.value = t.durationMs; error.value = null
-        info.value = null; probeJob?.cancel()
-        Recents.add(t.path); TvHome.schedule(appCtx, 30_000)
-        probeJob = CoroutineScope(Dispatchers.IO).launch { info.value = Probe.probe(t) }
+        startProbe(t)
         playing.value = true; markSwitch()
         c.load(t, startMs)
     }
@@ -318,9 +372,7 @@ object Playback {
         if (i < 0) return
         if (exo.currentMediaItemIndex != i) exo.seekTo(i, 0L)
         index.value = i; position.value = 0; duration.value = t.durationMs; error.value = null
-        info.value = null; probeJob?.cancel()
-        Recents.add(t.path); TvHome.schedule(appCtx, 30_000)
-        probeJob = CoroutineScope(Dispatchers.IO).launch { info.value = Probe.probe(t) }
+        startProbe(t)
         playing.value = true
         updateNext()
     }
@@ -338,6 +390,8 @@ object Playback {
     /** Chọn thiết bị phát: null = quay lại đầu ra của TV. Bài đang nghe được chuyển sang, giữ nguyên vị trí. */
     fun setTarget(r: Renderer?) {
         val wasPlaying = playing.value; val pos = position.value; val i = index.value
+        AppLog.i("Player", "Chọn đầu ra: ${r?.label ?: "TV/thiết bị này"}")
+        clearFailure(); RemoteStats.health.value = RemoteHealth()
         rc?.let { runCatching { it.stop() }; it.close() }
         rc = null
         if (r == null) {

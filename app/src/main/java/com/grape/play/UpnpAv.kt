@@ -1,5 +1,6 @@
 package com.grape.play
 
+import android.os.SystemClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -12,7 +13,7 @@ import java.util.concurrent.TimeUnit
 
 /** Điều khiển UPnP AVTransport (WiiM Ultra, Network Player, TV…): đưa URL bài hát cho thiết bị tự kéo về phát. */
 class UpnpController(private val r: Renderer) : RemoteController() {
-    private val http = Http.client.newBuilder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).callTimeout(15, TimeUnit.SECONDS).build()
+    private val http = Http.client.newBuilder().connectTimeout(4, TimeUnit.SECONDS).readTimeout(6, TimeUnit.SECONDS).callTimeout(8, TimeUnit.SECONDS).build()
 
     @Volatile private var active = false
     @Volatile private var sawPlaying = false
@@ -31,6 +32,28 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     @Volatile private var armTried = -1
     @Volatile private var lastPos = 0L
 
+    // ---- Nhiều máy cùng điều khiển một thiết bị nhận, và theo dõi chất lượng liên lạc ----
+    private val knownUrls = java.util.Collections.synchronizedList(ArrayList<String>())   // các URL do chính app này nạp (bài hiện tại, bài nạp sẵn)
+    @Volatile private var health = RemoteHealth(viaTv = true)
+    private val series = ArrayDeque<Int>()
+    private var drops = 0
+    private var ok = true
+    private var lat = 0
+
+    private fun same(a: String, b: String) = a == b || key(a) == key(b) || a.substringAfterLast('/').substringBefore('?') == b.substringAfterLast('/').substringBefore('?')
+    private fun foreign(cu: String) = cu.isNotEmpty() && knownUrls.none { same(it, cu) }
+    private fun remember(url: String) { knownUrls.add(url); while (knownUrls.size > 4) knownUrls.removeAt(0) }
+    private fun publish(st: String, other: Boolean = false) {
+        health = RemoteHealth(lat, series.toList(), drops, st, armed != null, nextSupported, health.lastSwitchAt, true, other)
+        RemoteStats.health.value = health
+    }
+    private fun record(ms: Int) {   // ms = 0: lần hỏi thất bại
+        series.addLast(ms); while (series.size > 60) series.removeFirst()
+        if (ms > 0) { lat = if (lat == 0) ms else (lat * 3 + ms) / 4 }
+        if (ms == 0 && ok) { drops++; AppLog.w("UPnP", "${r.name}: mất phản hồi lần thứ $drops") }
+        ok = ms > 0
+    }
+
     init { scope.launch { pollLoop() } }
 
     private fun key(u: String) = u.substringAfter("/t/", u).substringBefore('?')
@@ -43,7 +66,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
             val mode = if (StreamServer.isDsdFile(n)) AudioSettings.dsdRemote else AudioSettings.DSD_RAW
             val url = StreamServer.urlFor(n, mode)
             call("SetNextAVTransportURI", "<NextURI>${xml(url)}</NextURI><NextURIMetaData>${xml(didl(n, url))}</NextURIMetaData>")
-            armed = n; armedKey = key(url)
+            armed = n; armedKey = key(url); remember(url)
         } catch (e: Exception) {
             armed = null
             // 401 Invalid Action / 602 Not implemented: thiết bị không hỗ trợ → dùng cách cũ (app nạp bài khi hết bài)
@@ -131,10 +154,13 @@ class UpnpController(private val r: Renderer) : RemoteController() {
         val my = ++seq
         active = false; sawPlaying = false; userStopped = false; armed = null; armedKey = ""; lastPos = 0
         trackDur = t.durationMs
+        health = health.copy(lastSwitchAt = System.currentTimeMillis(), otherController = false)
         scope.launch {
             try {
                 val mode = if (StreamServer.isDsdFile(t)) AudioSettings.dsdRemote else AudioSettings.DSD_RAW
                 val url = StreamServer.urlFor(t, mode)
+                knownUrls.clear(); remember(url)
+                AppLog.i("UPnP", "Nạp bài ${t.ext} tới ${r.name} (${if (StreamServer.isDsdFile(t)) (if (mode == AudioSettings.DSD_DOP) "DoP" else "DSD gốc") else "file gốc"})")
                 settle(my)
                 if (my != seq) return@launch
                 try {
@@ -152,6 +178,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
                 // bị thay bằng lệnh nạp mới hơn (ví dụ đổi chế độ DSD): bỏ qua, lệnh mới sẽ lo
             } catch (e: Exception) {
                 if (my == seq) {
+                    AppLog.e("UPnP", "Nạp bài tới ${r.name} lỗi: ${e.message}")
                     runCatching { call("Stop", "") }   // đưa thiết bị về trạng thái nghỉ để lần Phát kế tiếp không bị kẹt
                     onError("Không phát được tới ${r.name}: ${e.message ?: e.javaClass.simpleName}")
                 }
@@ -163,26 +190,53 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     override fun seek(ms: Long) { scope.launch { runCatching { call("Seek", "<Unit>REL_TIME</Unit><Target>${hms(ms)}</Target>") }.onFailure { onError("Tua lỗi: ${it.message}") } } }
     override fun stop() { userStopped = true; active = false; scope.launch { runCatching { call("Stop", "") } } }
 
+    /**
+     * Hỏi trạng thái thiết bị. Thiết kế để nhiều máy cùng mở app không làm loa lag:
+     *  - lệch pha ngẫu nhiên khi bắt đầu, để hai máy không hỏi trùng một lúc;
+     *  - đang phát bình thường chỉ hỏi vị trí mỗi giây, hỏi trạng thái 3 giây một lần; tạm dừng thì hỏi thưa hơn (2,5 giây);
+     *  - lỗi/chậm thì giãn dần 2 → 4 → 8 giây thay vì dồn dập thêm;
+     *  - phát hiện bài đang phát KHÔNG phải do app này nạp (máy khác giành quyền): ngừng gửi lệnh và không tự chuyển bài, tránh hai máy giằng co.
+     */
     private suspend fun pollLoop() {
+        delay((Math.random() * 800).toLong())
+        var fails = 0; var foreignN = 0; var tick = 0; var lastSt = ""
         while (scope.isActive) {
-            delay(1000)
+            val gap = when { fails > 0 -> minOf(8000L, 1000L shl minOf(fails, 3)); lastSt == "PLAYING" -> 1000L; else -> 2500L }
+            delay(gap)
             if (!active) continue
             try {
-                val st = tag(call("GetTransportInfo", ""), "CurrentTransportState")
+                val t0 = SystemClock.elapsedRealtime()
                 val pi = call("GetPositionInfo", "")
+                val ms = (SystemClock.elapsedRealtime() - t0).toInt().coerceAtLeast(1)
+                if (fails > 0) AppLog.i("UPnP", "${r.name}: liên lạc lại được")
+                fails = 0; record(ms)
                 val pos = parseHms(tag(pi, "RelTime"))
+                val st = if (lastSt == "PLAYING" && tick++ % 3 != 0 && pos != lastPos) "PLAYING" else tag(call("GetTransportInfo", ""), "CurrentTransportState")
+                lastSt = st
                 val dur = parseHms(tag(pi, "TrackDuration")).takeIf { it > 0 } ?: trackDur
                 val prevPos = lastPos; lastPos = pos
+                val cu = unescape(tag(pi, "TrackURI"))
+
+                // Máy khác đã nạp bài khác lên thiết bị này? (cần thấy 3 lần liên tiếp và đã quá thời gian chờ thiết bị đổi URL)
+                if ((st == "PLAYING" || st == "PAUSED_PLAYBACK") && foreign(cu) && System.currentTimeMillis() - loadedAt > 8000) foreignN++ else foreignN = 0
+                if (foreignN >= 3) {
+                    AppLog.w("UPnP", "${r.name} đang được máy khác điều khiển (URL lạ) — app này ngừng gửi lệnh")
+                    active = false; armed = null; armedKey = ""; publish(st, other = true)
+                    onError("${r.name} đang được một thiết bị khác điều khiển. Để tránh giằng co, app đã ngừng gửi lệnh. Bấm Phát để điều khiển lại từ máy này.")
+                    continue
+                }
+
                 // Thiết bị đã tự qua bài đã nạp sẵn?
                 val a = armed
                 if (a != null) {
-                    val cu = unescape(tag(pi, "TrackURI"))
                     // Dự phòng khi thiết bị viết lại URL (TrackURI khác): bài trước đã gần hết, giờ vị trí về gần 0 và đang PLAYING → đã tự qua bài kế
                     val wrapped = st == "PLAYING" && trackDur > 0 && prevPos >= trackDur - 4000 && pos in 0..4000
                     if ((cu.isNotEmpty() && key(cu) == armedKey) || wrapped) {
                         armed = null; armedKey = ""; armTried = -1; lastPos = 0
                         trackDur = a.durationMs; sawPlaying = true; loadedAt = System.currentTimeMillis(); pendingSeek = 0
-                        onAdvanced(a)
+                        health = health.copy(lastSwitchAt = System.currentTimeMillis())
+                        AppLog.i("UPnP", "${r.name} tự qua bài kế (gapless)")
+                        onAdvanced(a); publish(st)
                         continue
                     }
                 }
@@ -196,12 +250,15 @@ class UpnpController(private val r: Renderer) : RemoteController() {
                     "PAUSED_PLAYBACK", "PAUSED_RECORDING" -> onState(false, pos, dur)
                     "TRANSITIONING" -> onState(true, pos, dur)
                     "STOPPED", "NO_MEDIA_PRESENT" ->
-                        if (sawPlaying && !userStopped) { active = false; onEnded() }
-                        else if (!sawPlaying && System.currentTimeMillis() - loadedAt > 20_000) { active = false; onError("${r.name} không phát được bài này (thiết bị báo dừng). Thử bài khác hoặc định dạng khác.") }
+                        if (sawPlaying && !userStopped) { active = false; AppLog.i("UPnP", "${r.name} báo dừng: hết bài"); onEnded() }
+                        else if (!sawPlaying && System.currentTimeMillis() - loadedAt > 20_000) { active = false; AppLog.e("UPnP", "${r.name} không phát được bài (báo dừng sau 20 s)"); onError("${r.name} không phát được bài này (thiết bị báo dừng). Thử bài khác hoặc định dạng khác.") }
                 }
+                publish(st)
             } catch (e: Exception) {
-                // mất kết nối thoáng qua: thử lại ở vòng sau; chỉ báo lỗi nếu mất lâu
-                if (System.currentTimeMillis() - loadedAt > 60_000 && !sawPlaying) { active = false; onError("Mất kết nối tới ${r.name}: ${e.message}") }
+                // mất kết nối thoáng qua: thử lại ở vòng sau (giãn dần); chỉ báo lỗi nếu mất lâu
+                fails++; record(0); lastSt = ""
+                publish("MẤT KẾT NỐI")
+                if (System.currentTimeMillis() - loadedAt > 60_000 && !sawPlaying) { active = false; AppLog.e("UPnP", "Mất kết nối tới ${r.name}: ${e.message}"); onError("Mất kết nối tới ${r.name}: ${e.message}") }
             }
         }
     }

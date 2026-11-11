@@ -21,6 +21,19 @@ object AudioSettings {
     var dsdRate: Int
         get() = if (::sp.isInitialized) sp.getInt("dsdRate", 176400) else 176400
         set(v) { sp.edit().putInt("dsdRate", v).apply() }
+    /**
+     * Tốc độ DSD→PCM thực dùng cho đầu ra hiện tại = min(lựa chọn của người dùng, mức đầu ra này từng nhận được).
+     * Khi một đầu ra (ví dụ cổng quang) không nhận 176,4 kHz, app tự hạ và nhớ riêng cho đầu ra đó, không làm đổi lựa chọn chung.
+     */
+    fun effectiveDsdRate(): Int = minOf(dsdRate, if (::sp.isInitialized) sp.getInt("dsdLimit_$deviceType", Int.MAX_VALUE) else Int.MAX_VALUE)
+    /** Hạ một bậc (176,4 → 88,2 → 44,1 kHz) cho đầu ra hiện tại; trả về tốc độ mới hoặc null nếu đã ở mức thấp nhất. */
+    fun lowerDsdRate(): Int? {
+        val next = when { effectiveDsdRate() > 88200 -> 88200; effectiveDsdRate() > 44100 -> 44100; else -> return null }
+        sp.edit().putInt("dsdLimit_$deviceType", next).apply()
+        return next
+    }
+    /** Quên các mức đã hạ (khi người dùng chủ động chọn lại tốc độ DSD trong Cài đặt). */
+    fun resetDsdLimits() { sp.edit().apply { sp.all.keys.filter { it.startsWith("dsdLimit_") }.forEach { remove(it) } }.apply() }
     /** Cách gửi DSD tới thiết bị UPnP: DSD_RAW = file DSF/DFF gốc; DSD_DOP = DSD64 gói trong PCM 24-bit/176,4 kHz. */
     const val DSD_RAW = 0
     const val DSD_DOP = 1

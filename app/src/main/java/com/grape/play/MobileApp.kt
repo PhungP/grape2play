@@ -436,6 +436,7 @@ private fun MobileSettings(onOut: () -> Unit) {
             MobileEq()
             BackgroundCard()
             UpdateCard()
+            LogCard()
             CoverWebCard()
             LanguageCard()
             MButton("Về ứng dụng (About)", Modifier.fillMaxWidth()) { showAbout = true }
