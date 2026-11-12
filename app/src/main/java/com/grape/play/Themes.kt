@@ -36,7 +36,7 @@ object Themes {
     )
 
     val cur = mutableStateOf(ALL[0])
-    /** Bố cục màn Đang phát: 0 mặc định, 1 Cổ điển, 2 Toàn ảnh, 3 Nền màu (kiểu Symfonium). */
+    /** Bố cục màn Đang phát: 0 mặc định, 1 Cổ điển, 2 Toàn ảnh (đã bỏ), 3 Nền màu (kiểu Symfonium), 4 Nhôm phay xước (chỉ TV/máy tính bảng ngang; điện thoại dùng bố cục mặc định). */
     val style = mutableStateOf(0)
     private lateinit var sp: SharedPreferences
 
@@ -45,7 +45,7 @@ object Themes {
         sp = ctx.getSharedPreferences("theme", Context.MODE_PRIVATE)
         val id = sp.getString("id", "grape")
         cur.value = ALL.firstOrNull { it.id == id } ?: ALL[0]
-        style.value = sp.getInt("nowStyle", 0).coerceIn(0, 3).let { if (it == 2) 0 else it }   // kiểu "Toàn ảnh" đã bỏ
+        style.value = sp.getInt("nowStyle", 0).coerceIn(0, 4).let { if (it == 2) 0 else it }   // kiểu "Toàn ảnh" đã bỏ
     }
     fun setStyle(i: Int) { style.value = i; if (::sp.isInitialized) sp.edit().putInt("nowStyle", i).apply() }
     fun set(id: String) {

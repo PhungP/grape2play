@@ -189,7 +189,7 @@ fun GeneratedCover(seed: Int) {
 
 /** Thanh sóng âm + tiến trình. Hình dạng sóng được tạo từ đường dẫn file (chưa phải sóng âm thật, sẽ làm ở giai đoạn sau). */
 @Composable
-fun Waveform(seed: Int, progress: Float, modifier: Modifier = Modifier) {
+fun Waveform(seed: Int, progress: Float, modifier: Modifier = Modifier, played: Color? = null) {
     val n = 110
     val hs = remember(seed) {
         val r = java.util.Random(seed.toLong()); val raw = FloatArray(n) { 0.2f + 0.8f * r.nextFloat() }
@@ -199,7 +199,7 @@ fun Waveform(seed: Int, progress: Float, modifier: Modifier = Modifier) {
         val w = size.width / n
         hs.forEachIndexed { i, h ->
             val bh = size.height * h
-            drawRoundRect(if (i < progress * n) C.Gold else C.Dim, Offset(i * w + w * 0.15f, (size.height - bh) / 2), Size(w * 0.7f, bh), CornerRadius(w * 0.3f))
+            drawRoundRect(if (i < progress * n) (played ?: C.Gold) else C.Dim, Offset(i * w + w * 0.15f, (size.height - bh) / 2), Size(w * 0.7f, bh), CornerRadius(w * 0.3f))
         }
     }
 }

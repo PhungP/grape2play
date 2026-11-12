@@ -21,7 +21,7 @@ import java.util.concurrent.Executors
  *  - Xuất ra: chia sẻ (điện thoại), hoặc mở bằng trình duyệt của máy khác qua mạng LAN (TV không có sẵn ứng dụng chia sẻ).
  */
 object AppLog {
-    const val DEV_EMAIL = "phankimphung@gmail.com"
+    const val DEV_EMAIL = "grape2play@gmail.com"
     private const val MAX_FILE = 384 * 1024
     private const val RAM_LINES = 300
 

@@ -104,12 +104,16 @@ class MainActivity : ComponentActivity() {
         if (perm) { if (Library.tracks.value.isEmpty()) lifecycleScope.launch { Library.load(applicationContext) } }
         else req.launch(storagePerm)
         val dm = resources.displayMetrics
+        // Mi Box và nhiều box Android TV chạy giao diện 1080p dù xuất ra TV 4K: hệ thống báo cho app chỉ 1920×1080.
+        // Độ phân giải thật của màn hình/cổng HDMI nằm trong Display.Mode → dùng để chế độ "Tự động" nhận ra 4K.
+        val physH = runCatching { windowManager.defaultDisplay.mode.physicalHeight }.getOrDefault(0).coerceAtLeast(dm.heightPixels)
+        AppLog.i("Display", "UI ${dm.widthPixels}×${dm.heightPixels} · màn hình thật ${physH}p · chế độ ${DisplayPrefs.mode.value}")
         val tv = isTv
         setContent {
             val cfg = LocalConfiguration.current
             // TV: 1dp = 1px của canvas thiết kế (16:9). Canvas rộng 1560 (FHD, chữ to) hoặc 1920 (4K, gọn); tự co giãn theo màn hình thật 720p / 1080p / 4K.
             // Điện thoại / máy tính bảng: dùng mật độ thật của máy, chữ co nhỏ hơn một chút trên màn hình hẹp.
-            val cw = DisplayPrefs.canvasWidth(dm.heightPixels)
+            val cw = DisplayPrefs.canvasWidth(physH)
             val scale = minOf(dm.widthPixels / cw, dm.heightPixels / (cw * 9f / 16f)).coerceAtLeast(0.4f)
             val density = if (tv) Density(scale, 1f) else LocalDensity.current
             val textScale = if (tv || cfg.screenWidthDp >= 600) 1f else 0.8f
@@ -121,7 +125,7 @@ class MainActivity : ComponentActivity() {
                     Box(Modifier.fillMaxSize().background(C.Bg)) { BurnIn.Guard {
                         if (!tv) MobileApp(perm, { req.launch(storagePerm) }, screen, { screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT })
                         else when (screen) {
-                            Screen.NOW -> if (Themes.style.value == 0) NowPlaying({ screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT })
+                            Screen.NOW -> if (Themes.style.value == 0 || Themes.style.value == 4) NowPlaying({ screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT }, alu = Themes.style.value == 4)
                                 else SymNow(Themes.style.value, { screen = it }) { screen = Screen.OUTPUT }
                             Screen.LIB -> LibraryScreen(perm, { req.launch(storagePerm) }, { screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT })
                             Screen.SOUND -> SoundScreen({ screen = it }, { screen = Screen.SOURCES }, { screen = Screen.OUTPUT })

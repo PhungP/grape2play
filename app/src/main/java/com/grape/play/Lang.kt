@@ -67,6 +67,9 @@ object Lang {
         "Tần số" to "Frequency", "THIẾT BỊ NHẬN" to "RECEIVER", "KẾT NỐI & PHÁT LIÊN TỤC" to "LINK & CONTINUOUS PLAY",
         "Thiết bị tự giải mã luồng nhận được" to "The device decodes the stream itself", "Thiết bị tự kéo nhạc về và giải mã" to "The device pulls the music and decodes it itself",
         "⚠ EQ đang chỉnh — có thể méo nếu tăng cao" to "⚠ EQ is active — may distort if boosted high",
+        "Âm lượng loa" to "Speaker volume", "Đệm của loa" to "Speaker buffer", "Tốc độ kéo nhạc" to "Streaming rate", "Nhôm phay xước" to "Brushed aluminium",
+        "Loa kéo nhạc thẳng từ nguồn, không qua TV" to "The speaker pulls music straight from the source, not via the TV",
+        "⚠ Máy khác đang điều khiển loa" to "⚠ Another device is controlling the speaker",
         "⚠ Máy khác đang điều khiển thiết bị này" to "⚠ Another device is controlling this receiver",
         // chung
         "Đóng" to "Close", "Huỷ" to "Cancel", "Bấm Back để đóng" to "Press Back to close", "Xoá" to "Delete", "Quét lại" to "Rescan",
@@ -242,6 +245,7 @@ object Lang {
         Regex("Bạn đang dùng bản (.+)") to "You are using version $1",
         Regex("•  (.+)") to "•  $1",
         Regex("Email nhà phát triển: (.+)") to "Developer email: $1",
+        Regex("Phản hồi: (.+) · Mất kết nối: (\\d+)") to "Response: $1 · Dropouts: $2",
         Regex("Phản hồi: (.+)") to "Response: $1",
         Regex("Trạng thái: (.+)") to "Status: $1",
         Regex("Bài kế: (.+)") to "Next: $1",

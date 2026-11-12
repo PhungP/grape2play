@@ -18,6 +18,12 @@ data class RemoteHealth(
     val lastSwitchAt: Long = 0L, val viaTv: Boolean = true,
     /** true = phát hiện máy khác đang điều khiển cùng thiết bị nhận (đã ngừng gửi lệnh để không tranh nhau). */
     val otherController: Boolean = false,
+    /** Số giây nhạc loa đã tải trước (ước tính từ số byte TV đã gửi); -1 = không đo được (nguồn kéo thẳng, Cast…). */
+    val bufferSec: Int = -1,
+    /** Tốc độ TV gửi nhạc cho loa (kbit/s) ở các lần hỏi gần nhất; rỗng nếu không đo được. */
+    val kbps: List<Int> = emptyList(),
+    /** Âm lượng loa 0–100 (RenderingControl); -1 = loa không báo. */
+    val volume: Int = -1,
 )
 object RemoteStats { val health = MutableStateFlow(RemoteHealth()) }
 

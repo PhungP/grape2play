@@ -223,3 +223,18 @@ Lưu ý: bản 0.8.1 phải cài thủ công một lần; từ đó trở đi c�
 - **Sửa kẹt khi phát DSD ra đầu ra không tương thích** (cổng quang, TV): tự hạ tốc độ DSD→PCM cho riêng đầu ra đó (176,4 → 88,2 → 44,1 kHz) rồi phát lại; sau lỗi, chọn bài/thư mục khác, bấm Phát hoặc đổi đầu ra đều nạp lại bộ phát ngay và xoá thông báo lỗi cũ.
 - **Nhiều máy cùng một loa UPnP**: hỏi trạng thái thưa hơn và lệch pha, giãn dần khi loa chậm, timeout ngắn; phát hiện máy khác giành quyền (URL lạ 3 lần liên tiếp) thì ngừng gửi lệnh, không tự chuyển bài, báo rõ và chờ bấm Phát để giành lại.
 - Dọn mã: gom 3 đoạn trùng lặp trong Playback (`startProbe`), bỏ hàm `Vu` không dùng, bỏ `UpdatedDialog`.
+
+## Bản 0.9.1
+- Hai hộp "Thiết bị nhận" / "Kết nối & phát liên tục" cao 150 dp, hiện đủ thông tin (hàng nút điều khiển thấp lại 108 dp để vừa).
+- Chế độ hiển thị "Tự động" đọc độ phân giải thật của màn hình (Display.Mode) nên Mi Box xuất 4K nhưng giao diện hệ thống 1080p vẫn nhận ra 4K.
+- Email nhận nhật ký: grape2play@gmail.com.
+
+## Bản 0.9.2
+- Sửa đồng hồ VU đứng yên (-∞ dB) khi phát file 24-bit (FLAC 24-bit, DSD→PCM) ra cổng quang / chế độ Tương thích 16-bit: đo mức tại cửa vào bộ xuất âm thanh (ForwardingAudioSink) thay vì AudioProcessor.
+- Dòng "Đường tín hiệu" giờ luôn có định dạng PCM thật; file 24-bit hạ về 16-bit sẽ hiện mức vàng "GẦN BIT-PERFECT · hạ 24→16-bit" thay vì xanh sai.
+
+## Bản 1.0.0 (trước đó là 0.10.0)
+- Màn Đang phát: ảnh bìa và hộp thông số chia đôi bằng nhau, đường giữa trùng với đường giữa hai hộp VU / hai hộp Thiết bị nhận–Kết nối; nút Phát/Dừng nằm đúng trên đường giữa đó (hai bên mỗi bên hai nút; nút Yêu thích chuyển lên góc hộp thông số).
+- Hộp "Thiết bị nhận": thêm thanh âm lượng loa (RenderingControl GetVolume, hỏi ~4 giây/lần; loa không hỗ trợ thì ẩn).
+- Hộp "Kết nối & phát liên tục": thanh đệm của loa (giây nhạc TV đã gửi trước, ước tính), phản hồi/mất kết nối/trạng thái/bài kế, đồ thị tốc độ TV gửi nhạc (kbit/s). Ẩn phần đo khi loa kéo thẳng từ nguồn hoặc dùng Cast.
+- Giao diện mới "Nhôm phay xước" (Cài đặt → Bố cục màn Đang phát): tấm nhôm vân xước, ô đen, đồng hồ VU nền vàng kim đen, nút Phát đen viền vàng, bốn con ốc. Điện thoại dùng bố cục mặc định.

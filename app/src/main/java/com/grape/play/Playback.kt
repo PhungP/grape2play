@@ -11,6 +11,7 @@ import java.io.IOException
 import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -25,6 +26,8 @@ import android.os.SystemClock
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.ForwardingAudioSink
+import java.nio.ByteBuffer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import kotlinx.coroutines.*
@@ -212,12 +215,24 @@ object Playback {
 
     private fun build(): ExoPlayer {
         val rf = object : DefaultRenderersFactory(appCtx) {
-            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-                DefaultAudioSink.Builder(context)
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink {
+                val base = DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf<AudioProcessor>(dsp, level))
+                    .setAudioProcessors(arrayOf<AudioProcessor>(dsp))
                     .build()
+                // Đồng hồ VU đo ở cửa vào bộ xuất âm thanh để luôn thấy PCM gốc (kể cả 24-bit bị ExoPlayer hạ xuống 16-bit bên trong)
+                return object : ForwardingAudioSink(base) {
+                    override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
+                        level.configure(inputFormat, AudioSettings.hires)
+                        super.configure(inputFormat, specifiedBufferSize, outputChannels)
+                    }
+                    override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
+                        level.tap(buffer)
+                        return super.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
+                    }
+                }
+            }
         }
         rf.setEnableAudioFloatOutput(AudioSettings.hires)
         val p = ExoPlayer.Builder(appCtx, rf)

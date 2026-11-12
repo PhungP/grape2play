@@ -2,40 +2,44 @@
 package com.grape.play
 
 import androidx.media3.common.C
-import androidx.media3.common.audio.AudioProcessor
-import androidx.media3.common.audio.BaseAudioProcessor
+import androidx.media3.common.Format
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.max
 
-/** Đo mức tín hiệu L/R thật từ luồng PCM đang phát (không thay đổi âm thanh) → VU meter. */
-class LevelProcessor : BaseAudioProcessor() {
+/**
+ * Đo mức tín hiệu L/R thật từ luồng PCM đang phát (không thay đổi âm thanh) → VU meter, và cho biết định dạng PCM thật đưa ra đầu ra.
+ *
+ * Từ 0.9.2 đo ngay tại cửa vào bộ xuất âm thanh (xem Playback.build: ForwardingAudioSink) thay vì làm một AudioProcessor.
+ * Lý do: với file 24-bit (FLAC/DSD→PCM) khi chọn "Tương thích 16-bit", ExoPlayer đổi sang 16-bit ở bên trong bộ xuất âm thanh nên
+ * AudioProcessor của app không được gọi → đồng hồ VU đứng yên (-∞ dB) và dòng "Đường tín hiệu" thiếu định dạng PCM. Đo ở cửa vào luôn thấy PCM gốc.
+ */
+class LevelProcessor {
     val levels = MutableStateFlow(0f to 0f)
     val fmt = MutableStateFlow("")
     private var l = 0f
     private var r = 0f
-    private var enc = C.ENCODING_PCM_16BIT
+    private var enc = C.ENCODING_INVALID
     private var ch = 2
 
-    override fun onConfigure(f: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        enc = f.encoding; ch = f.channelCount
-        val bits = when (f.encoding) { C.ENCODING_PCM_16BIT -> "16-bit"; C.ENCODING_PCM_24BIT -> "24-bit"; C.ENCODING_PCM_32BIT -> "32-bit"; C.ENCODING_PCM_FLOAT -> "32-bit float"; else -> "?" }
-        fmt.value = "PCM $bits ${khz(f.sampleRate)}"
-        return when (f.encoding) {
-            C.ENCODING_PCM_16BIT, C.ENCODING_PCM_24BIT, C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> f
-            else -> AudioProcessor.AudioFormat.NOT_SET
-        }
+    private fun isPcm(e: Int) = e == C.ENCODING_PCM_16BIT || e == C.ENCODING_PCM_24BIT || e == C.ENCODING_PCM_32BIT || e == C.ENCODING_PCM_FLOAT
+
+    /** Gọi khi bộ xuất âm thanh được cấu hình cho một luồng mới. [floatOut]: người dùng chọn Hi-res (PCM float 32-bit). */
+    fun configure(f: Format, floatOut: Boolean) {
+        enc = f.pcmEncoding; ch = f.channelCount.coerceAtLeast(1)
+        l = 0f; r = 0f
+        if (!isPcm(enc)) { fmt.value = ""; return }
+        val highRes = enc != C.ENCODING_PCM_16BIT
+        val out = if (floatOut && highRes) "32-bit float" else "16-bit"   // không chọn Hi-res: ExoPlayer hạ mọi thứ về 16-bit
+        fmt.value = "PCM $out ${khz(f.sampleRate)}"
     }
 
-    override fun queueInput(input: ByteBuffer) {
-        val n = input.remaining()
-        if (n == 0) return
-        meter(input.duplicate().order(ByteOrder.LITTLE_ENDIAN))
-        val out = replaceOutputBuffer(n)
-        out.put(input)
-        out.flip()
+    /** Đo một khối PCM sắp đưa vào bộ xuất âm thanh (chỉ đọc, không sửa, không làm xê dịch vị trí buffer gốc). */
+    fun tap(src: ByteBuffer) {
+        if (!isPcm(enc) || !src.hasRemaining()) return
+        meter(src.duplicate().order(ByteOrder.LITTLE_ENDIAN))
     }
 
     private fun sample(b: ByteBuffer, i: Int): Float = when (enc) {
@@ -61,5 +65,4 @@ class LevelProcessor : BaseAudioProcessor() {
         l = max(pl, l * 0.92f); r = max(pr, r * 0.92f)
         levels.value = l to r
     }
-
 }

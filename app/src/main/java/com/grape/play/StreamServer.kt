@@ -18,6 +18,18 @@ object StreamServer {
     private val artTracks = ConcurrentHashMap<String, Track>()
     private val counter = AtomicInteger(0)
     private val pool = Executors.newCachedThreadPool { r -> Thread(r, "grape-stream").also { it.isDaemon = true } }
+    private class Prog(val size: Long) { @Volatile var maxEnd = 0L }
+    private val progress = ConcurrentHashMap<String, Prog>()   // id → vị trí byte xa nhất đã gửi (để ước tính loa đã tải trước bao nhiêu)
+    private val bytesOut = java.util.concurrent.atomic.AtomicLong(0)
+    /** Tổng số byte nhạc đã gửi cho các thiết bị ngoài kể từ khi mở app. */
+    fun bytesServed(): Long = bytesOut.get()
+    private fun idOf(url: String) = url.substringAfter("/t/", "").substringBefore('?').substringBeforeLast('.')
+    /** Tỉ lệ file của URL [url] đã được gửi đi (0..1); -1 nếu không phải URL do TV phục vụ. */
+    fun deliveredFraction(url: String): Float {
+        val p = progress[idOf(url)] ?: return -1f
+        return if (p.size > 0) (p.maxEnd.toFloat() / p.size).coerceIn(0f, 1f) else -1f
+    }
+
     @Volatile private var server: ServerSocket? = null
     @Volatile var port = 0
         private set
@@ -181,6 +193,8 @@ object StreamServer {
                         if (start >= size) { reply(416, "Range Not Satisfiable", "Content-Range: bytes */$size\r\n"); return }
                     }
                     val len = if (size > 0) end - start + 1 else -1L
+                    if (progress.size > 400) progress.keys.take(200).forEach { progress.remove(it) }
+                    val prog = progress.getOrPut(id) { Prog(size) }
                     val head = StringBuilder()
                     head.append(if (partial) "HTTP/1.1 206 Partial Content\r\n" else "HTTP/1.1 200 OK\r\n")
                     head.append("Content-Type: ${mime(ext)}\r\nAccept-Ranges: bytes\r\n")
@@ -198,6 +212,7 @@ object StreamServer {
                             val n = rd.read(pos, buf, 0, want)
                             if (n <= 0) break
                             out.write(buf, 0, n); pos += n
+                            bytesOut.addAndGet(n.toLong()); if (pos > prog.maxEnd) prog.maxEnd = pos
                         }
                     }
                     out.flush()

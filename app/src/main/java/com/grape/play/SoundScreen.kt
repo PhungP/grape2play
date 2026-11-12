@@ -85,13 +85,13 @@ fun ThemeCard() {
 @Composable
 fun StyleCard() {
     val cur by Themes.style
-    val styles = listOf(0 to "Mặc định", 1 to "Cổ điển", 3 to "Nền màu")   // chỉ số 2 (Toàn ảnh) đã bỏ
+    val styles = listOf(0 to "Mặc định", 4 to "Nhôm phay xước", 1 to "Cổ điển", 3 to "Nền màu")   // chỉ số 2 (Toàn ảnh) đã bỏ
     Card {
         T("BỐ CỤC MÀN ĐANG PHÁT", 13, C.Muted, spaced = true)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             styles.forEach { (i, nm) -> Opt(nm, cur == i) { Themes.setStyle(i) } }
         }
-        T("Cổ điển và Nền màu lấy cảm hứng từ Symfonium, dùng được trên điện thoại, máy tính bảng và TV. TV: OK = phát/dừng · Menu = yêu thích · Back = về Thư viện.", 14, C.Muted, lines = 3)
+        T("Nhôm phay xước: tấm nhôm sáng, ô đen, đồng hồ VU nền vàng (chỉ TV; điện thoại dùng bố cục mặc định). Cổ điển và Nền màu lấy cảm hứng từ Symfonium, dùng được trên điện thoại, máy tính bảng và TV. TV: OK = phát/dừng · Menu = yêu thích · Back = về Thư viện.", 14, C.Muted, lines = 4)
     }
 }
 

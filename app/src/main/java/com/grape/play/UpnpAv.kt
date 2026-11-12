@@ -39,12 +39,22 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     private var drops = 0
     private var ok = true
     private var lat = 0
+    @Volatile private var curUrl = ""
+    @Volatile private var armedUrl = ""
+    private val rates = ArrayDeque<Int>()
+    private var lastBytes = 0L
+    private var lastBytesAt = 0L
+    private var volume = -1
+    private var volFails = 0
+    private var volTick = 0
 
     private fun same(a: String, b: String) = a == b || key(a) == key(b) || a.substringAfterLast('/').substringBefore('?') == b.substringAfterLast('/').substringBefore('?')
     private fun foreign(cu: String) = cu.isNotEmpty() && knownUrls.none { same(it, cu) }
     private fun remember(url: String) { knownUrls.add(url); while (knownUrls.size > 4) knownUrls.removeAt(0) }
+    private var bufferSec = -1
     private fun publish(st: String, other: Boolean = false) {
-        health = RemoteHealth(lat, series.toList(), drops, st, armed != null, nextSupported, health.lastSwitchAt, true, other)
+        health = RemoteHealth(lat, series.toList(), drops, st, armed != null, nextSupported, health.lastSwitchAt, true, other, bufferSec, rates.toList(), volume)
+
         RemoteStats.health.value = health
     }
     private fun record(ms: Int) {   // ms = 0: lần hỏi thất bại
@@ -66,7 +76,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
             val mode = if (StreamServer.isDsdFile(n)) AudioSettings.dsdRemote else AudioSettings.DSD_RAW
             val url = StreamServer.urlFor(n, mode)
             call("SetNextAVTransportURI", "<NextURI>${xml(url)}</NextURI><NextURIMetaData>${xml(didl(n, url))}</NextURIMetaData>")
-            armed = n; armedKey = key(url); remember(url)
+            armed = n; armedKey = key(url); armedUrl = url; remember(url)
         } catch (e: Exception) {
             armed = null
             // 401 Invalid Action / 602 Not implemented: thiết bị không hỗ trợ → dùng cách cũ (app nạp bài khi hết bài)
@@ -76,11 +86,15 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     }
 
     // ---- SOAP ----
-    private fun call(action: String, args: String): String {
-        val svc = "urn:schemas-upnp-org:service:AVTransport:1"
+    private fun call(action: String, args: String): String = soap(r.avCtrl, "urn:schemas-upnp-org:service:AVTransport:1", action, args)
+
+    /** Lệnh RenderingControl (âm lượng loa). */
+    private fun rc(action: String, args: String = ""): String = soap(r.rcCtrl, "urn:schemas-upnp-org:service:RenderingControl:1", action, "<Channel>Master</Channel>$args")
+
+    private fun soap(url: String, svc: String, action: String, args: String): String {
         val body = "<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body>" +
             "<u:$action xmlns:u=\"$svc\"><InstanceID>0</InstanceID>$args</u:$action></s:Body></s:Envelope>"
-        val rq = Request.Builder().url(r.avCtrl).header("SOAPACTION", "\"$svc#$action\"")
+        val rq = Request.Builder().url(url).header("SOAPACTION", "\"$svc#$action\"")
             .post(body.toRequestBody("text/xml; charset=\"utf-8\"".toMediaType())).build()
         return http.newCall(rq).execute().use {
             val txt = it.body?.string().orEmpty()
@@ -159,7 +173,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
             try {
                 val mode = if (StreamServer.isDsdFile(t)) AudioSettings.dsdRemote else AudioSettings.DSD_RAW
                 val url = StreamServer.urlFor(t, mode)
-                knownUrls.clear(); remember(url)
+                knownUrls.clear(); remember(url); curUrl = url
                 AppLog.i("UPnP", "Nạp bài ${t.ext} tới ${r.name} (${if (StreamServer.isDsdFile(t)) (if (mode == AudioSettings.DSD_DOP) "DoP" else "DSD gốc") else "file gốc"})")
                 settle(my)
                 if (my != seq) return@launch
@@ -190,6 +204,22 @@ class UpnpController(private val r: Renderer) : RemoteController() {
     override fun seek(ms: Long) { scope.launch { runCatching { call("Seek", "<Unit>REL_TIME</Unit><Target>${hms(ms)}</Target>") }.onFailure { onError("Tua lỗi: ${it.message}") } } }
     override fun stop() { userStopped = true; active = false; scope.launch { runCatching { call("Stop", "") } } }
 
+    /** Đo tốc độ TV gửi nhạc, ước tính số giây loa đã tải trước, và (thưa hơn) hỏi âm lượng loa. */
+    private fun measure(pos: Long, dur: Long) {
+        val now = SystemClock.elapsedRealtime(); val b = StreamServer.bytesServed()
+        if (lastBytesAt > 0) {
+            val dt = (now - lastBytesAt).coerceAtLeast(1)
+            rates.addLast(((b - lastBytes) * 8 / dt).toInt().coerceAtLeast(0)); while (rates.size > 60) rates.removeFirst()
+        }
+        lastBytes = b; lastBytesAt = now
+        val frac = StreamServer.deliveredFraction(curUrl)
+        bufferSec = if (frac < 0f || dur <= 0) -1 else ((frac * dur - pos) / 1000).toInt().coerceAtLeast(0)
+        if (r.rcCtrl.isNotEmpty() && volFails < 2 && volTick++ % 4 == 0) {
+            try { volume = tag(rc("GetVolume"), "CurrentVolume").toIntOrNull()?.coerceIn(0, 100) ?: -1; if (volume < 0) volFails++ else volFails = 0 }
+            catch (e: Exception) { volFails++ }
+        }
+    }
+
     /**
      * Hỏi trạng thái thiết bị. Thiết kế để nhiều máy cùng mở app không làm loa lag:
      *  - lệch pha ngẫu nhiên khi bắt đầu, để hai máy không hỏi trùng một lúc;
@@ -216,6 +246,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
                 val dur = parseHms(tag(pi, "TrackDuration")).takeIf { it > 0 } ?: trackDur
                 val prevPos = lastPos; lastPos = pos
                 val cu = unescape(tag(pi, "TrackURI"))
+                measure(pos, dur)
 
                 // Máy khác đã nạp bài khác lên thiết bị này? (cần thấy 3 lần liên tiếp và đã quá thời gian chờ thiết bị đổi URL)
                 if ((st == "PLAYING" || st == "PAUSED_PLAYBACK") && foreign(cu) && System.currentTimeMillis() - loadedAt > 8000) foreignN++ else foreignN = 0
@@ -232,7 +263,7 @@ class UpnpController(private val r: Renderer) : RemoteController() {
                     // Dự phòng khi thiết bị viết lại URL (TrackURI khác): bài trước đã gần hết, giờ vị trí về gần 0 và đang PLAYING → đã tự qua bài kế
                     val wrapped = st == "PLAYING" && trackDur > 0 && prevPos >= trackDur - 4000 && pos in 0..4000
                     if ((cu.isNotEmpty() && key(cu) == armedKey) || wrapped) {
-                        armed = null; armedKey = ""; armTried = -1; lastPos = 0
+                        curUrl = armedUrl; armed = null; armedKey = ""; armTried = -1; lastPos = 0
                         trackDur = a.durationMs; sawPlaying = true; loadedAt = System.currentTimeMillis(); pendingSeek = 0
                         health = health.copy(lastSwitchAt = System.currentTimeMillis())
                         AppLog.i("UPnP", "${r.name} tự qua bài kế (gapless)")

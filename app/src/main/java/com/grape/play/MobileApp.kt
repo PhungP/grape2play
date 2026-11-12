@@ -311,7 +311,7 @@ private fun MobileNow(onOut: () -> Unit) {
     val land = cfg.screenWidthDp > cfg.screenHeightDp
     var showQueue by remember { mutableStateOf(false) }
     val style by Themes.style
-    if (style != 0) { SymNow(style, {}, onOut); return }
+    if (style != 0 && style != 4) { SymNow(style, {}, onOut); return }
     if (t == null) {
         Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
             T("Chưa có bài nào đang phát. Mở Thư viện để chọn nhạc.", 20, C.Muted, lines = 3)
